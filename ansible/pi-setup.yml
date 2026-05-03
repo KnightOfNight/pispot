@@ -70,7 +70,7 @@
           reboot 0
           metric 5000
           ipv4only
-          timeout 15
+          timeout 60
 
           profile static_eth0
           static ip_address=192.168.50.1/24
