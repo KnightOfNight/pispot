@@ -66,6 +66,21 @@ SwapTotal:             0 kB
 	if _, err := parseTempMillideg([]byte("not a number\n")); err == nil {
 		t.Errorf("temp: expected error on non-numeric input")
 	}
+
+	// uptime: first field is uptime seconds, second is idle (ignored).
+	u, err := parseUptime([]byte("12345.67 8901.23\n"))
+	if err != nil {
+		t.Fatalf("uptime: unexpected error: %v", err)
+	}
+	if u != 12345.67 {
+		t.Errorf("uptime: got %v, want 12345.67", u)
+	}
+	if _, err := parseUptime([]byte("")); err == nil {
+		t.Errorf("uptime: expected error on empty input")
+	}
+	if _, err := parseUptime([]byte("not a number\n")); err == nil {
+		t.Errorf("uptime: expected error on non-numeric input")
+	}
 }
 
 func TestSelectThermalZone(t *testing.T) {
@@ -161,7 +176,9 @@ func TestCollectorTick(t *testing.T) {
 	}
 	selectTherm := func() (string, error) { return "/fake/path/temp", nil }
 
-	c := newWithDeps(readLoad, readMem, readTemp, selectTherm, time.Now, 10*time.Millisecond)
+	readUptime := func() ([]byte, error) { return []byte("12345.67 8901.23\n"), nil }
+
+	c := newWithDeps(readLoad, readMem, readUptime, readTemp, selectTherm, time.Now, 10*time.Millisecond)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -224,9 +241,11 @@ func TestCollectorTick(t *testing.T) {
 	}
 
 	staticTemp := func() ([]byte, error) { return []byte("47318\n"), nil }
+	staticUptime := func() ([]byte, error) { return []byte("12345.67 8901.23\n"), nil }
 	c2 := newWithDeps(
 		readLoad,
 		func() ([]byte, error) { return nil, errors.New("meminfo boom") },
+		staticUptime,
 		staticTemp,
 		selectTherm,
 		time.Now,

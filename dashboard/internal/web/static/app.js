@@ -293,6 +293,11 @@
       setClass(thEl, null);
     }
 
+    // System uptime from /proc/uptime.
+    $("sys-uptime").textContent = Number.isFinite(sys.uptime_seconds) && sys.uptime_seconds > 0
+      ? fmtDuration(sys.uptime_seconds)
+      : "-";
+
     $("sys-error").textContent = humanizeError(sys.error);
   }
 

@@ -31,6 +31,7 @@ type Info struct {
 	MemUsedBytes  uint64
 	TempCelsius   float64
 	Throttled     bool
+	UptimeSeconds float64
 }
 
 // Snapshot is a point-in-time view plus any error encountered during
@@ -48,6 +49,7 @@ type thermalSelector func() (string, error)
 type Collector struct {
 	readLoad    readerFunc
 	readMem     readerFunc
+	readUptime  readerFunc
 	readTemp    readerFunc
 	selectTherm thermalSelector
 	clock       func() time.Time
@@ -59,6 +61,7 @@ type Collector struct {
 func New(cfg config.Config) *Collector {
 	loadPath := filepath.Join(cfg.ProcPath, "loadavg")
 	memPath := filepath.Join(cfg.ProcPath, "meminfo")
+	uptimePath := filepath.Join(cfg.ProcPath, "uptime")
 	thermalRoot := filepath.Join(cfg.SysPath, "class", "thermal")
 
 	selectTherm := func() (string, error) {
@@ -76,6 +79,7 @@ func New(cfg config.Config) *Collector {
 	return newWithDeps(
 		func() ([]byte, error) { return os.ReadFile(loadPath) },
 		func() ([]byte, error) { return os.ReadFile(memPath) },
+		func() ([]byte, error) { return os.ReadFile(uptimePath) },
 		readTemp,
 		selectTherm,
 		time.Now,
@@ -83,10 +87,11 @@ func New(cfg config.Config) *Collector {
 	)
 }
 
-func newWithDeps(readLoad, readMem, readTemp readerFunc, selectTherm thermalSelector, clock func() time.Time, interval time.Duration) *Collector {
+func newWithDeps(readLoad, readMem, readUptime, readTemp readerFunc, selectTherm thermalSelector, clock func() time.Time, interval time.Duration) *Collector {
 	c := &Collector{
 		readLoad:    readLoad,
 		readMem:     readMem,
+		readUptime:  readUptime,
 		readTemp:    readTemp,
 		selectTherm: selectTherm,
 		clock:       clock,
@@ -172,11 +177,36 @@ func (c *Collector) tick() {
 		}
 	}
 
+	if raw, err := c.readUptime(); err != nil {
+		errs = append(errs, fmt.Sprintf("uptime: %v", err))
+	} else {
+		u, err := parseUptime(raw)
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("uptime: %v", err))
+		} else {
+			info.UptimeSeconds = u
+		}
+	}
+
 	snap := &Snapshot{At: now, Info: info}
 	if len(errs) > 0 {
 		snap.Err = fmt.Errorf("%s", strings.Join(errs, "; "))
 	}
 	c.snap.Store(snap)
+}
+
+// parseUptime extracts the system uptime in seconds from /proc/uptime.
+// Format: "<uptime_seconds> <idle_seconds>". Only the first field is used.
+func parseUptime(raw []byte) (float64, error) {
+	fields := strings.Fields(string(raw))
+	if len(fields) < 1 {
+		return 0, fmt.Errorf("empty uptime reading")
+	}
+	u, err := strconv.ParseFloat(fields[0], 64)
+	if err != nil {
+		return 0, fmt.Errorf("parse uptime: %w", err)
+	}
+	return u, nil
 }
 
 func parseLoadavg(raw []byte) (l1, l5, l15 float64, err error) {

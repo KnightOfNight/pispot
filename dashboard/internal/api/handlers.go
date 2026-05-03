@@ -73,7 +73,7 @@ type Admin struct {
 }
 
 // System is the host-level summary (load, memory, temperature,
-// inferred throttling state).
+// inferred throttling state, and system uptime).
 type System struct {
 	Load1m        float64 `json:"load_1m"`
 	Load5m        float64 `json:"load_5m"`
@@ -82,6 +82,7 @@ type System struct {
 	MemUsedBytes  uint64  `json:"mem_used_bytes"`
 	TempCelsius   float64 `json:"temp_celsius"`
 	Throttled     bool    `json:"throttled"`
+	UptimeSeconds float64 `json:"uptime_seconds"`
 	Error         string  `json:"error,omitempty"`
 }
 
@@ -345,6 +346,7 @@ func (s *Server) systemFromCollector() System {
 		MemUsedBytes:  snap.Info.MemUsedBytes,
 		TempCelsius:   snap.Info.TempCelsius,
 		Throttled:     snap.Info.Throttled,
+		UptimeSeconds: snap.Info.UptimeSeconds,
 	}
 	if snap.Err != nil {
 		out.Error = snap.Err.Error()

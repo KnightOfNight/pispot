@@ -83,6 +83,7 @@
         <h2>System</h2>
         <div class="error" id="sys-error"></div>
         <div class="kv-grid">
+          <div>Uptime</div><div id="sys-uptime" class="num">-</div>
           <div>Load</div><div id="sys-load" class="num load-grid">-</div>
           <div>Memory</div><div id="sys-mem" class="num">-</div>
           <div>Temperature</div><div id="sys-temp" class="num">-</div>
@@ -95,11 +96,10 @@
   <footer>
     <div class="meta">
       <span id="meta-host">-</span> &middot;
-      uptime <span id="meta-uptime">-</span> &middot;
-      <span id="meta-commit" class="mono">-</span>
+      dashboard v. <span id="meta-commit" class="mono">-</span>/<span id="meta-buildtime" class="sub">-</span>
       <span id="meta-dirty" class="tag tag-dirty" hidden>dirty</span>
       &middot;
-      <span id="meta-buildtime" class="sub">-</span>
+      uptime <span id="meta-uptime">-</span>
     </div>
     <div class="copyright">pispot &copy; MCS 'Net Productions 2026</div>
   </footer>
