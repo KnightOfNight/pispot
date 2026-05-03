@@ -110,9 +110,11 @@ def ask_required(prompt: str, default: str = "", secret: bool = False) -> str:
         print("  (required — please enter a value)")
 
 
-def section(title: str) -> None:
+def section(title: str, subtitle: str = "") -> None:
     print(f"\n{'─' * 60}")
     print(f"  {title}")
+    if subtitle:
+        print(f"  - {subtitle}")
     print(f"{'─' * 60}")
 
 
@@ -181,7 +183,7 @@ def main() -> None:
     # ------------------------------------------------------------------
     # Pi connection
     # ------------------------------------------------------------------
-    section("Pi connection")
+    section("Pi connection", "used for SSH, Ansible setup, and make ssh/logs/deploy targets")
     pi_host = ask_required(
         "Pi hostname or IP",
         default=prev_env.get("PI_HOST", ""),
