@@ -28,6 +28,20 @@
       set_fact:
         bootstrap_witness_text: "{{ bootstrap_witness_content.content | b64decode | trim }}"
 
+    - name: Ensure pispot Unix groups exist
+      group:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - pispot-ro
+        - pispot-admin
+
+    - name: Add ansible_user to pispot-admin group
+      user:
+        name: "{{ ansible_user }}"
+        groups: pispot-admin
+        append: yes
+
     - name: Disable NetworkManager control of interfaces
       copy:
         dest: /etc/NetworkManager/conf.d/10-unmanaged.conf
@@ -113,6 +127,14 @@
         owner: root
         group: root
         mode: "0644"
+
+    - name: Create /etc/pispot configuration directory
+      file:
+        path: /etc/pispot
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
 
     - name: Install pispot-authd configuration
       copy:

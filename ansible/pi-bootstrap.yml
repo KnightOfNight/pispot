@@ -25,6 +25,46 @@
           - btop
         state: present
 
+    - name: Create apt keyrings directory
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
+    - name: Install Docker apt key
+      get_url:
+        url: https://download.docker.com/linux/debian/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: "0644"
+
+    - name: Add Docker apt repository
+      apt_repository:
+        repo: "deb [arch=arm64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian {{ ansible_facts['distribution_release'] }} stable"
+        state: present
+        filename: docker
+
+    - name: Install Docker packages
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+
+    - name: Enable and start Docker service
+      systemd:
+        name: docker
+        enabled: true
+        state: started
+
+    - name: Add ansible_user to docker group
+      user:
+        name: "{{ ansible_user }}"
+        groups: docker
+        append: yes
+
     - name: Set Wi-Fi country
       command: raspi-config nonint do_wifi_country {{ wifi_country }}
       changed_when: false
