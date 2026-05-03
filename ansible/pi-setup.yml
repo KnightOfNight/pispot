@@ -1,0 +1,400 @@
+---
+- name: Configure Raspberry Pi hotspot/router
+  hosts: all
+  become: true
+
+  vars:
+    pispot_tls_src_dir: "{{ playbook_dir }}/../ssl"
+    pispot_tls_dest_dir: /etc/pispot/certs
+
+  tasks:
+    - name: Check for bootstrap witness file
+      stat:
+        path: /etc/pispot-bootstrap
+      register: bootstrap_witness
+
+    - name: Require bootstrap witness file
+      assert:
+        that:
+          - bootstrap_witness.stat.exists
+        fail_msg: Run 'make bootstrap' before 'make setup'.
+
+    - name: Read bootstrap witness file
+      slurp:
+        src: /etc/pispot-bootstrap
+      register: bootstrap_witness_content
+
+    - name: Record bootstrap witness contents
+      set_fact:
+        bootstrap_witness_text: "{{ bootstrap_witness_content.content | b64decode | trim }}"
+
+    - name: Disable NetworkManager control of interfaces
+      copy:
+        dest: /etc/NetworkManager/conf.d/10-unmanaged.conf
+        mode: "0644"
+        content: |
+          [keyfile]
+          unmanaged-devices=interface-name:eth0;interface-name:wlan0;interface-name:wlan1
+
+    - name: Configure dhcpcd
+      copy:
+        dest: /etc/dhcpcd.conf
+        mode: "0644"
+        content: |
+          hostname
+          clientid
+          persistent
+          option rapid_commit
+          option domain_name_servers, domain_name, domain_search, host_name
+          option classless_static_routes
+          option interface_mtu
+          require dhcp_server_identifier
+          slaac private
+
+          interface eth0
+          fallback static_eth0
+          reboot 0
+          metric 5000
+          ipv4only
+          timeout 15
+
+          profile static_eth0
+          static ip_address=192.168.50.1/24
+
+          interface wlan0
+          static ip_address=10.10.10.1/24
+          nohook wpa_supplicant
+
+          interface wlan1
+          metric 2000
+      notify: restart dhcpcd
+
+    - name: Configure WAN Wi-Fi networks
+      copy:
+        dest: /etc/wpa_supplicant/wpa_supplicant-wlan1.conf
+        mode: "0600"
+        content: |
+          ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+          update_config=1
+          country={{ wifi_country }}
+
+          {% for net in wan_networks %}
+          network={
+              ssid="{{ net.ssid }}"
+              psk="{{ net.password }}"
+          }
+          {% endfor %}
+
+    - name: Install pispotctl
+      copy:
+        src: "{{ playbook_dir }}/../host/files/pispotctl"
+        dest: /usr/local/bin/pispotctl
+        mode: "0755"
+
+    - name: Install pamtester (required by pispot-authd for PAM authentication)
+      apt:
+        name: pamtester
+        state: present
+
+    - name: Install pispot-authd binary
+      copy:
+        src: "{{ playbook_dir }}/../host/files/pispot-authd"
+        dest: /usr/local/bin/pispot-authd
+        owner: root
+        group: root
+        mode: "0755"
+        force: true
+      notify: restart pispot-authd
+
+    - name: Install pispot PAM service
+      copy:
+        src: "{{ playbook_dir }}/../host/files/pispot.pam"
+        dest: /etc/pam.d/pispot
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Install pispot-authd configuration
+      copy:
+        src: "{{ playbook_dir }}/../host/files/pispot-authd.conf"
+        dest: /etc/pispot/authd.conf
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Install pispot-authd systemd unit
+      copy:
+        src: "{{ playbook_dir }}/../host/files/pispot-authd.service"
+        dest: /etc/systemd/system/pispot-authd.service
+        owner: root
+        group: root
+        mode: "0644"
+      notify:
+        - reload systemd
+        - restart pispot-authd
+
+    - name: Enable and start pispot-authd
+      systemd:
+        name: pispot-authd
+        enabled: true
+        state: started
+        masked: false
+
+    - name: Create pispot TLS certificate directory
+      file:
+        path: "{{ pispot_tls_dest_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Copy pispot TLS certificate
+      copy:
+        src: "{{ pispot_tls_src_dir }}/{{ pispot_tls_cert_name }}.crt"
+        dest: "{{ pispot_tls_dest_dir }}/{{ pispot_tls_cert_name }}.crt"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Copy pispot TLS private key
+      copy:
+        src: "{{ pispot_tls_src_dir }}/{{ pispot_tls_cert_name }}.key"
+        dest: "{{ pispot_tls_dest_dir }}/{{ pispot_tls_cert_name }}.key"
+        owner: root
+        group: root
+        mode: "0600"
+
+    - name: Copy pispot TLS CA certificate
+      copy:
+        src: "{{ pispot_tls_src_dir }}/{{ pispot_tls_cert_name }}.ca"
+        dest: "{{ pispot_tls_dest_dir }}/{{ pispot_tls_cert_name }}.ca"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Install pispot TLS fullchain
+      copy:
+        dest: "{{ pispot_tls_dest_dir }}/fullchain.pem"
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          {{ lookup('file', pispot_tls_src_dir + '/' + pispot_tls_cert_name + '.crt') }}
+          {{ lookup('file', pispot_tls_src_dir + '/' + pispot_tls_cert_name + '.ca') }}
+
+    - name: Configure hostapd
+      copy:
+        dest: /etc/hostapd/hostapd.conf
+        mode: "0644"
+        content: |
+          interface=wlan0
+          driver=nl80211
+          ssid={{ hotspot_ssid }}
+          hw_mode=g
+          channel=6
+          wmm_enabled=1
+          ieee80211n=1
+          auth_algs=1
+          wpa=2
+          wpa_passphrase={{ hotspot_password }}
+          wpa_key_mgmt=WPA-PSK
+          rsn_pairwise=CCMP
+      notify: restart hostapd
+
+    - name: Set hostapd config path
+      copy:
+        dest: /etc/default/hostapd
+        mode: "0644"
+        content: |
+          DAEMON_CONF="/etc/hostapd/hostapd.conf"
+      notify: restart hostapd
+
+    - name: Configure dnsmasq
+      copy:
+        dest: /etc/dnsmasq.conf
+        mode: "0644"
+        content: |
+          interface=wlan0
+          bind-dynamic
+
+          dhcp-range=10.10.10.10,10.10.10.100,255.255.255.0,12h
+          dhcp-option=3,10.10.10.1
+          dhcp-option=6,10.10.10.1
+          address=/{{ pispot_https_hostname }}/10.10.10.1
+      notify: restart dnsmasq
+
+    - name: Create dnsmasq systemd override directory
+      file:
+        path: /etc/systemd/system/dnsmasq.service.d
+        state: directory
+        mode: "0755"
+
+    - name: Ensure dnsmasq waits for hotspot address
+      copy:
+        dest: /etc/systemd/system/dnsmasq.service.d/wait-for-wlan0.conf
+        mode: "0644"
+        content: |
+          [Unit]
+          After=dhcpcd.service hostapd.service
+          Wants=dhcpcd.service hostapd.service
+
+          [Service]
+          ExecStartPre=/bin/sh -c 'for i in $(seq 1 30); do ip addr show wlan0 | grep -q "10.10.10.1/24" && exit 0; sleep 1; done; exit 1'
+      notify:
+        - reload systemd
+        - restart dnsmasq
+
+    - name: Reload systemd after dnsmasq override
+      systemd:
+        daemon_reload: true
+
+    - name: Enable IP forwarding
+      copy:
+        dest: /etc/sysctl.d/99-ipforward.conf
+        mode: "0644"
+        content: |
+          net.ipv4.ip_forward=1
+
+    - name: Apply sysctl settings
+      command: sysctl --system
+      changed_when: false
+
+    - name: Configure nftables
+      copy:
+        dest: /etc/nftables.conf
+        mode: "0644"
+        content: |
+          flush ruleset
+
+          table ip nat {
+              chain postrouting {
+                  type nat hook postrouting priority srcnat; policy accept;
+                  oifname { "wlan1", "eth0" } ip saddr 10.10.10.0/24 masquerade
+              }
+          }
+
+          table ip filter {
+              chain forward {
+                  type filter hook forward priority filter; policy drop;
+
+                  iifname "wlan0" oifname "wlan1" ct state new,established,related accept
+                  iifname "wlan1" oifname "wlan0" ct state established,related accept
+
+                  iifname "wlan0" oifname "eth0" ct state new,established,related accept
+                  iifname "eth0" oifname "wlan0" ct state established,related accept
+              }
+          }
+      notify: restart nftables
+
+    - name: Enable and start core services
+      systemd:
+        name: "{{ item }}"
+        enabled: true
+        state: started
+        masked: false
+      loop:
+        - dhcpcd
+        - hostapd
+        - dnsmasq
+        - nftables
+
+    - name: Ensure wpa_supplicant@wlan1 does not start automatically on boot
+      systemd:
+        name: wpa_supplicant@wlan1
+        enabled: false
+        masked: false
+
+    - name: Restrict avahi-daemon to eth0 only
+      lineinfile:
+        path: /etc/avahi/avahi-daemon.conf
+        regexp: '^#?allow-interfaces='
+        line: 'allow-interfaces=eth0'
+        insertafter: '^\[server\]'
+      notify: restart avahi-daemon
+
+    - name: Check whether Wired connection 1 exists
+      command: nmcli -t -f NAME connection show
+      register: nm_profiles
+      changed_when: false
+
+    - name: Flush handlers before setup validation
+      meta: flush_handlers
+
+    - name: Check IP forwarding
+      command: sysctl net.ipv4.ip_forward
+      register: ipf
+      changed_when: false
+
+    - name: Check routes
+      command: ip route
+      register: routes
+      changed_when: false
+
+    - name: Build setup validation summary
+      set_fact:
+        setup_validation:
+          ip_forward: "{{ 'PASS' if 'net.ipv4.ip_forward = 1' in ipf.stdout else 'FAIL' }}"
+          wan_route_present: >-
+            {{
+              'PASS'
+              if (
+                (routes.stdout_lines | select('match', '^default .* dev wlan1( |$)') | list | length) > 0
+                or
+                (routes.stdout_lines | select('match', '^default .* dev eth0( |$)') | list | length) > 0
+              )
+              else 'FAIL'
+            }}
+          nm_profile_present: "{{ 'FAIL' if 'Wired connection 1' in nm_profiles.stdout_lines else 'PASS' }}"
+
+    - name: Print setup validation summary
+      debug:
+        msg:
+          - "IP Forwarding: {{ setup_validation.ip_forward }}"
+          - "WAN default route present: {{ setup_validation.wan_route_present }}"
+          - "NM Wired connection 1 absent: {{ setup_validation.nm_profile_present }}"
+
+    - name: Assert IP forwarding enabled
+      assert:
+        that:
+          - "'net.ipv4.ip_forward = 1' in ipf.stdout"
+
+  handlers:
+    - name: reload systemd
+      systemd:
+        daemon_reload: true
+
+    - name: restart dhcpcd
+      systemd:
+        name: dhcpcd
+        state: restarted
+        masked: false
+
+    - name: restart hostapd
+      systemd:
+        name: hostapd
+        state: restarted
+        masked: false
+
+    - name: restart dnsmasq
+      systemd:
+        name: dnsmasq
+        state: restarted
+        masked: false
+
+    - name: restart nftables
+      systemd:
+        name: nftables
+        state: restarted
+        masked: false
+
+    - name: restart pispot-authd
+      systemd:
+        name: pispot-authd
+        state: restarted
+        masked: false
+
+    - name: restart avahi-daemon
+      systemd:
+        name: avahi-daemon
+        state: restarted
+        masked: false

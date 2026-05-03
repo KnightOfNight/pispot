@@ -1,0 +1,33 @@
+# Build artifacts
+/bin/
+/out/
+host/files/pispot-authd
+host/files/pispotctl
+
+# Secrets — never commit these
+dashboard/.env
+dashboard/.env.local
+ansible/inventory/hosts
+ansible/group_vars/all.yml
+ssl/
+
+# TLS certs / keys anywhere
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Ansible logs
+ansible/logs/
+
+# Editor / OS
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Go
+*.test
+*.out
+coverage.*

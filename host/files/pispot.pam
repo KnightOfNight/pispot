@@ -1,0 +1,7 @@
+# PAM service for pispot-authd
+# Installed as /etc/pam.d/pispot on the Pi host.
+# Uses the host's standard auth stack: local Unix passwords
+# via pam_unix, plus any system-wide PAM configuration.
+# Adding 2FA or LDAP later only requires updating common-auth.
+@include common-auth
+@include common-account

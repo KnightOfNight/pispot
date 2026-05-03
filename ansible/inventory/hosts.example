@@ -1,0 +1,4 @@
+# Copy this file to inventory/hosts and fill in your Pi's hostname and SSH user.
+# NEVER commit inventory/hosts — it contains your real Pi hostname.
+[pi]
+pi-host ansible_host=your-pi.local ansible_user=your-username

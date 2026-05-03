@@ -1,0 +1,54 @@
+---
+- name: Bootstrap Raspberry Pi base system
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Upgrade all packages
+      apt:
+        upgrade: dist
+
+    - name: Install required packages
+      apt:
+        name:
+          - dhcpcd5
+          - hostapd
+          - dnsmasq
+          - nftables
+          - avahi-daemon
+          - wpasupplicant
+          - rfkill
+          - btop
+        state: present
+
+    - name: Set Wi-Fi country
+      command: raspi-config nonint do_wifi_country {{ wifi_country }}
+      changed_when: false
+
+    - name: Unblock Wi-Fi
+      command: rfkill unblock wifi
+      changed_when: false
+
+    - name: Write bootstrap witness file
+      copy:
+        dest: /etc/pispot-bootstrap
+        mode: "0644"
+        content: |
+          pispot-bootstrap=complete
+          wifi_country={{ wifi_country }}
+
+    - name: Check if reboot is required
+      stat:
+        path: /var/run/reboot-required
+      register: reboot_required
+
+    - name: Reboot if required
+      reboot:
+        msg: "Rebooting after bootstrap changes"
+        connect_timeout: 5
+        reboot_timeout: 300
+      when: reboot_required.stat.exists

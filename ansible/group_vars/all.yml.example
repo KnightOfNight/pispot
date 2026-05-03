@@ -1,0 +1,27 @@
+# Copy this file to group_vars/all.yml and fill in your values.
+# NEVER commit group_vars/all.yml — it contains real passwords.
+
+# Two-letter Wi-Fi country code (ISO 3166-1 alpha-2).
+wifi_country: "US"
+
+# Hotspot (wlan0) credentials — the AP your clients connect to.
+hotspot_ssid: "My-Hotspot"
+hotspot_password: "changeme-min8chars"
+
+# WAN (wlan1) networks — USB Wi-Fi adapter connects to these.
+# Add as many as needed; wpa_supplicant tries them in order.
+wan_networks:
+  - ssid: "Home-Network"
+    password: "home-wifi-password"
+  - ssid: "Backup-Network"
+    password: "backup-wifi-password"
+
+# HTTPS hostname for the dashboard (must resolve to 10.10.10.1 on the hotspot).
+pispot_https_hostname: "pispot.local"
+
+# TLS certificate name (filename prefix under ../ssl/).
+# Expected files: <name>.crt, <name>.key, <name>.ca
+pispot_tls_cert_name: "my_cert_name"
+
+# Dashboard page title (sets DASHBOARD_TITLE env var in the container).
+dashboard_title: "My Hotspot"

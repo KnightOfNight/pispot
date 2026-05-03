@@ -1,0 +1,108 @@
+---
+- name: Check Raspberry Pi hotspot/router health
+  hosts: all
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Check IP forwarding
+      command: sysctl net.ipv4.ip_forward
+      register: ipf
+      changed_when: false
+
+    - name: Check routes
+      command: ip route
+      register: routes
+      changed_when: false
+
+    - name: Check core service states
+      command: systemctl is-active hostapd dnsmasq dhcpcd
+      register: core_svc
+      changed_when: false
+
+    - name: Check DNS listeners
+      shell: ss -ulpn | grep ':53' || true
+      register: dns
+      changed_when: false
+
+    - name: Check hotspot interface address
+      command: ip -4 addr show wlan0
+      register: wlan0_addr
+      changed_when: false
+
+    - name: Check deployed pispotctl
+      stat:
+        path: /usr/local/bin/pispotctl
+      register: deployed_pispotctl
+      changed_when: false
+
+    - name: Check NetworkManager connection profiles
+      command: nmcli -t -f NAME connection show
+      register: nm_profiles
+      changed_when: false
+
+    - name: Identify active WAN interface
+      set_fact:
+        active_wan_interface: >-
+          {{
+            'wlan1'
+            if (routes.stdout_lines | select('match', '^default .* dev wlan1( |$)') | list | length) > 0
+            else (
+              'eth0'
+              if (routes.stdout_lines | select('match', '^default .* dev eth0( |$)') | list | length) > 0
+              else 'none'
+            )
+          }}
+
+    - name: Build validation summary
+      set_fact:
+        validation:
+          ip_forward: "{{ 'PASS' if 'net.ipv4.ip_forward = 1' in ipf.stdout else 'FAIL' }}"
+          services: >-
+            {{
+              'PASS'
+              if core_svc.stdout_lines | length == 3 and core_svc.stdout_lines | unique == ['active']
+              else 'FAIL'
+            }}
+          dns: "{{ 'PASS' if dns.stdout is search('10.10.10.1:53') else 'FAIL' }}"
+          hotspot_ip: "{{ 'PASS' if wlan0_addr.stdout is search('10.10.10.1/24') else 'FAIL' }}"
+          pispotctl_present: "{{ 'PASS' if deployed_pispotctl.stat.exists else 'FAIL' }}"
+          wan_status: "{{ active_wan_interface }}"
+          nm_eth0_profile: "{{ 'PASS' if 'Wired connection 1' not in nm_profiles.stdout_lines else 'FAIL' }}"
+
+    - name: Print validation summary
+      debug:
+        msg:
+          - "IP Forwarding: {{ validation.ip_forward }}"
+          - "Hotspot Services: {{ validation.services }}"
+          - "DNS: {{ validation.dns }}"
+          - "Hotspot IP: {{ validation.hotspot_ip }}"
+          - "pispotctl Present: {{ validation.pispotctl_present }}"
+          - "WAN Status: {{ validation.wan_status }}"
+          - "NM Wired connection 1 absent: {{ validation.nm_eth0_profile }}"
+
+    - name: Assert IP forwarding enabled
+      assert:
+        that:
+          - "'net.ipv4.ip_forward = 1' in ipf.stdout"
+
+    - name: Assert services active
+      assert:
+        that:
+          - core_svc.stdout_lines | length == 3
+          - core_svc.stdout_lines | unique == ['active']
+
+    - name: Assert DNS listening on hotspot
+      assert:
+        that:
+          - dns.stdout is search("10.10.10.1:53")
+
+    - name: Assert hotspot IP present
+      assert:
+        that:
+          - wlan0_addr.stdout is search("10.10.10.1/24")
+
+    - name: Assert stale NetworkManager eth0 profile is absent
+      assert:
+        that:
+          - "'Wired connection 1' not in nm_profiles.stdout_lines"

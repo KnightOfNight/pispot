@@ -1,0 +1,299 @@
+/* pispot-ui — minimal dark dashboard */
+:root {
+  --bg: #111418;
+  --panel: #1a1f26;
+  --fg: #d6dde3;
+  --muted: #7e8896;
+  --border: #2a313a;
+  --ok: #3ccf6b;
+  --warn: #e8a33d;
+  --bad: #e74c3c;
+  --accent: #5aa9ff;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  background: #0d1014;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.3px;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.controls label { color: var(--muted); }
+
+.controls select {
+  background: var(--panel);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+
+
+main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 20px;
+  display: grid;
+  gap: 20px;
+}
+
+/* WAN control buttons (admin only). */
+.wan-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.ctrl-btn {
+  background: var(--panel);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.ctrl-btn:hover:not(:disabled),
+.ctrl-link:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ctrl-link: an <a> tag styled identically to .ctrl-btn. */
+.ctrl-link {
+  display: inline-block;
+  background: var(--panel);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.ctrl-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* wan-op-status removed — WAN Status row in the kv-grid replaced it. */
+
+/* Row of equally-sized panes (WAN + Admin + System). */
+.row-thirds {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 20px;
+}
+
+/* The Load value cell in the System pane is itself a small 2-column
+   grid so the three rows (1m / 5m / 15m) align vertically regardless
+   of value width. */
+.load-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 8px;
+  row-gap: 2px;
+  align-items: baseline;
+}
+.load-grid .k {
+  color: var(--muted);
+  font-weight: normal;
+}
+
+section {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 18px;
+}
+
+section h2 {
+  margin: 0 0 10px 0;
+  font-size: 15px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.sub {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: normal;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.summary {
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.num { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--fg); }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 500; }
+
+.ok   { color: var(--ok); }
+.warn { color: var(--warn); }
+.bad  { color: var(--bad); }
+
+/* Ensure the HTML `hidden` attribute always wins the specificity battle
+   against class-based `display` rules (e.g. `.tag { display: inline-block }`).
+   Without this, toggling `el.hidden = true` from JS can appear to do
+   nothing when the element also carries a class that sets `display`. */
+[hidden] { display: none !important; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+th, td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+th {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.kv-grid {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 4px 14px;
+}
+
+.kv-grid > div:nth-child(odd) {
+  color: var(--muted);
+}
+
+.error {
+  color: var(--bad);
+  font-size: 12px;
+  margin-top: 8px;
+  margin-bottom: 12px;
+  min-height: 1em;
+}
+
+/* Collapse the error div entirely when empty so error-free panes
+   don't reserve a phantom blank line at the same vertical position
+   as a populated error in a sibling pane. */
+.error:empty { display: none; }
+
+footer {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 10px 20px 24px;
+  color: var(--muted);
+  font-size: 12px;
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag {
+  display: inline-block;
+  background: var(--warn);
+  color: #000;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  margin-left: 6px;
+  letter-spacing: 0.5px;
+}
+
+/* WiFi management page styles. */
+.wifi-add,
+.wifi-reload {
+  margin-top: 20px;
+}
+
+.wifi-add-form {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 8px 0;
+}
+
+.wifi-input {
+  background: var(--panel);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  min-width: 180px;
+}
+
+.wifi-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.wifi-psk {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* `dirty` build marker — red to draw the eye, distinct from the
+   default yellow .tag used elsewhere. */
+.tag.tag-dirty {
+  background: var(--bad);
+  color: #fff;
+}
+
+/* Status-pill variants (used by the connection indicator in the
+   top bar). tag-warn intentionally matches the default .tag look;
+   it is declared explicitly for symmetry when the JS swaps variants. */
+.tag.tag-ok   { background: var(--ok);   color: #000; }
+.tag.tag-warn { background: var(--warn); color: #000; }
+.tag.tag-bad  { background: var(--bad);  color: #fff; }
+
+@media (max-width: 600px) {
+  .topbar h1 { font-size: 15px; }
+  main { padding: 12px; }
+  section { padding: 10px 12px; }
+  .kv-grid { grid-template-columns: 110px 1fr; }
+  table { font-size: 12px; }
+}

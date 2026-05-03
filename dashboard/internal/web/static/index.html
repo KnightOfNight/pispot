@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{{DASHBOARD_TITLE}}</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>{{DASHBOARD_TITLE}}</h1>
+    <div class="controls">
+      <span id="status-label" class="tag tag-warn" title="connection status">WAITING</span>
+      <label for="interval">Refresh:</label>
+      <select id="interval">
+        <option value="1">1s</option>
+        <option value="2">2s</option>
+        <option value="3" selected>3s</option>
+        <option value="5">5s</option>
+        <option value="10">10s</option>
+        <option value="0">off</option>
+      </select>
+    </div>
+  </header>
+
+  <main>
+    <section id="section-interfaces">
+      <h2>Interfaces</h2>
+      <table class="iface-table">
+        <thead>
+          <tr><th>Interface</th><th>Link</th><th>Rx (Mbps)</th><th>Tx (Mbps)</th><th>Rx total</th><th>Tx total</th></tr>
+        </thead>
+        <tbody id="iface-rows"></tbody>
+      </table>
+    </section>
+
+    <section id="section-hotspot">
+      <h2>Hotspot clients <span class="sub" id="hotspot-iface"></span></h2>
+      <div class="error" id="hotspot-error"></div>
+      <div class="summary">Connected: <span id="hotspot-count" class="num">-</span></div>
+      <table class="client-table">
+        <thead>
+          <tr><th>MAC</th><th>IP</th><th>Hostname</th><th>Signal (dBm)</th><th>Connected</th><th>Rx</th><th>Tx</th></tr>
+        </thead>
+        <tbody id="hotspot-rows"></tbody>
+      </table>
+    </section>
+
+    <div class="row row-thirds">
+      <section id="section-wan">
+        <h2>WAN <span class="sub" id="wan-iface"></span></h2>
+        <div class="error" id="wan-error"></div>
+        <div id="wan-controls" class="wan-controls">
+          <a id="btn-wifi-config" href="/wifi.html" class="ctrl-btn ctrl-link" hidden>Config</a>
+          <button id="btn-wan-up" class="ctrl-btn" hidden>WAN Up</button>
+          <button id="btn-wan-down" class="ctrl-btn" hidden>WAN Down</button>
+        </div>
+        <div class="kv-grid">
+          <div>Status</div><div id="wan-status" class="num">-</div>
+          <div>Connected</div><div id="wan-connected" class="num">-</div>
+          <div>SSID</div><div id="wan-ssid" class="num">-</div>
+          <div>BSSID</div><div id="wan-bssid" class="num mono">-</div>
+          <div>Signal</div><div id="wan-signal" class="num">-</div>
+          <div>Freq</div><div id="wan-freq" class="num">-</div>
+          <div>Tx bitrate</div><div id="wan-bitrate" class="num">-</div>
+          <div>IP</div><div id="wan-ip" class="num mono">-</div>
+          <div>Gateway</div><div id="wan-gw" class="num mono">-</div>
+        </div>
+      </section>
+
+      <section id="section-admin">
+        <h2>Admin/Backup WAN <span class="sub" id="admin-iface"></span></h2>
+        <div class="error" id="admin-error"></div>
+        <div class="kv-grid">
+          <div>Link</div><div id="admin-link" class="num">-</div>
+          <div>IP</div><div id="admin-ip" class="num mono">-</div>
+          <div>Gateway</div><div id="admin-gw" class="num mono">-</div>
+        </div>
+      </section>
+
+      <section id="section-system">
+        <h2>System</h2>
+        <div class="error" id="sys-error"></div>
+        <div class="kv-grid">
+          <div>Load</div><div id="sys-load" class="num load-grid">-</div>
+          <div>Memory</div><div id="sys-mem" class="num">-</div>
+          <div>Temperature</div><div id="sys-temp" class="num">-</div>
+          <div>Throttled</div><div id="sys-throttle" class="num">-</div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <div class="meta">
+      <span id="meta-host">-</span> &middot;
+      uptime <span id="meta-uptime">-</span> &middot;
+      <span id="meta-commit" class="mono">-</span>
+      <span id="meta-dirty" class="tag tag-dirty" hidden>dirty</span>
+      &middot;
+      <span id="meta-buildtime" class="sub">-</span>
+    </div>
+    <div class="copyright">pispot &copy; MCS 'Net Productions 2026</div>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>

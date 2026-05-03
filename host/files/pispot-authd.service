@@ -1,0 +1,28 @@
+[Unit]
+Description=pispot authentication helper
+Documentation=https://github.com/mcs-net/pispot
+After=network.target
+
+[Service]
+Type=simple
+# Create /run/pispot if it doesn't exist. Using ExecStartPre instead of
+# RuntimeDirectory so systemd does NOT delete and recreate the directory
+# on each service stop/start cycle. Deleting the directory invalidates
+# any bind mounts pointing at it (e.g. Docker containers), causing
+# "directory not found" inside the container after a service restart.
+ExecStartPre=/bin/mkdir -p /run/pispot
+ExecStartPre=/bin/chmod 0750 /run/pispot
+ExecStart=/usr/local/bin/pispot-authd \
+    --config /etc/pispot/authd.conf \
+    --socket /run/pispot/pispot-authd.sock
+User=root
+Group=root
+Restart=on-failure
+RestartSec=5
+# Keep logs in the journal.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pispot-authd
+
+[Install]
+WantedBy=multi-user.target

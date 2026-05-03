@@ -1,0 +1,15 @@
+.git
+.gitignore
+.dockerignore
+.DS_Store
+.idea
+.vscode
+bin/
+out/
+*.md
+!README.md
+.env
+.env.local
+ansible/
+scripts/
+ssl/
