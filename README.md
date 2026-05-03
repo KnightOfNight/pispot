@@ -27,6 +27,8 @@ dashboard for monitoring and control.
 | USB Wi-Fi adapter `wlan1` | WAN uplink (station mode) |
 | Ethernet `eth0` | Admin / backup WAN |
 
+> Only the Raspberry Pi 5 has been tested. Other models are not supported.
+
 ## Architecture
 
 ```
@@ -99,13 +101,31 @@ pispot/
 - Node.js (for `make js-check`)
 
 **Raspberry Pi 5:**
-- Debian trixie (or Bookworm)
+- **Raspberry Pi OS Lite (64-bit)** — no desktop, minimal footprint.
+  Flash with [Raspberry Pi Imager](https://www.raspberrypi.com/software/).
 - Docker 29+
 - `pamtester` (installed by `make setup`)
 
 ## First-time setup
 
-### 1. Clone and configure
+### 1. Prepare the Pi
+
+1. Flash **Raspberry Pi OS Lite (64-bit)** to a new SD card using Raspberry Pi Imager
+2. In Imager's **Edit Settings** before writing:
+   - Set the hostname
+   - Enable SSH
+   - Create your user account and password
+3. Boot the Pi. If you set up password-only auth, copy your SSH key:
+   ```sh
+   ssh-copy-id <user>@<hostname>.local
+   ```
+4. Confirm SSH access before proceeding:
+   ```sh
+   ssh <user>@<hostname>.local
+   ```
+5. Note the hostname and username — you will enter both in `make init`
+
+### 2. Clone and configure
 
 ```sh
 git clone https://github.com/mcs-net/pispot
@@ -124,7 +144,7 @@ credentials. It writes three gitignored files:
 Re-running `make init` pre-populates every prompt with the saved value;
 press Enter to keep it unchanged.
 
-### 2. TLS certificate
+### 3. TLS certificate
 
 Place your certificate files in `ssl/` using the cert name you chose:
 
@@ -141,31 +161,38 @@ make gen-certs
 # then set PISPOT_TLS_CERT_NAME=test_cert in dashboard/.env
 ```
 
-### 3. Build
+### 4. Build
 
 ```sh
 make build          # compile pispot-authd, pispotctl (linux/arm64)
 make docker-build   # build pispot-ui Docker image (linux/arm64)
 ```
 
-### 4. Bootstrap the Pi (first time only)
+### 5. Bootstrap the Pi (first time only)
 
 ```sh
-make bootstrap      # apt upgrade, install packages, set Wi-Fi country
+make bootstrap      # apt upgrade, install packages, Docker, set Wi-Fi country
 ```
 
-This reboots the Pi if required.
+> When prompted `BECOME password:`, enter the sudo password for your Pi user account.
 
-### 5. Deploy
+This installs Docker from the official Docker apt repository and adds your
+user to the `docker` group. The Pi reboots if required — the reboot also
+ensures the new group membership is active for subsequent steps.
+
+### 6. Deploy
 
 ```sh
 make deploy-all
 ```
 
+> When prompted `BECOME password:`, enter the sudo password for your Pi user account.
+
 This will:
 1. Build host binaries (`pispot-authd`, `pispotctl`)
-2. Run Ansible `pi-setup.yml` — configures dhcpcd, hostapd, dnsmasq,
-   nftables, avahi, installs pispot-authd and pispotctl, deploys TLS certs
+2. Run Ansible `pi-setup.yml` — creates pispot Unix groups, adds your user
+   to `pispot-admin`, configures dhcpcd, hostapd, dnsmasq, nftables, avahi,
+   installs pispot-authd and pispotctl, deploys TLS certs
 3. Build the Docker image and ship it to the Pi
 4. Start the dashboard container
 
@@ -182,6 +209,9 @@ make logs               # ssh to Pi and run pispotctl logs
 make ssh                # open an SSH session to the Pi
 ```
 
+> `deploy-authd` and `checkup` run Ansible and will prompt `BECOME password:` —
+> enter the sudo password for your Pi user account.
+
 ## User accounts and access
 
 Two Unix groups control access:
@@ -191,7 +221,10 @@ Two Unix groups control access:
 | `pispot-ro` | read-only | view dashboard, no controls |
 | `pispot-admin` | admin | full dashboard, WAN up/down, WiFi config |
 
-Add users on the Pi:
+Both groups are created automatically by `make setup`. The user you entered
+in `make init` is automatically added to `pispot-admin` on first deploy.
+
+To add additional users on the Pi:
 
 ```sh
 sudo useradd -m alice

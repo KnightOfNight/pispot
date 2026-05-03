@@ -159,6 +159,7 @@ deploy-dashboard: js-check docker-build ship-dashboard restart-dashboard
 # ---------------------------------------------------------------------------
 ## deploy-authd: build-authd + build-pispotctl + Ansible pi-setup.yml
 deploy-authd: build-authd build-pispotctl
+	@printf "Ansible will prompt 'BECOME password:' — enter your Pi sudo password.\n"
 	ansible-playbook -i ansible/inventory/hosts ansible/pi-setup.yml --ask-become-pass
 
 ## _deploy-authd-no-setup: build binaries only, no Ansible (used by deploy-all)
@@ -181,14 +182,17 @@ deploy-all: check-secrets
 # ---------------------------------------------------------------------------
 ## bootstrap: apt upgrade + base packages + wifi country (run once on fresh Pi)
 bootstrap:
+	@printf "Ansible will prompt 'BECOME password:' — enter your Pi sudo password.\n"
 	ansible-playbook -i ansible/inventory/hosts ansible/pi-bootstrap.yml --ask-become-pass
 
 ## setup: full OS configuration (dhcpcd, hostapd, dnsmasq, nftables, pispot-authd)
 setup:
+	@printf "Ansible will prompt 'BECOME password:' — enter your Pi sudo password.\n"
 	ansible-playbook -i ansible/inventory/hosts ansible/pi-setup.yml --ask-become-pass
 
 ## checkup: read-only health check — validates IP forwarding, services, DNS
 checkup:
+	@printf "Ansible will prompt 'BECOME password:' — enter your Pi sudo password.\n"
 	ansible-playbook -i ansible/inventory/hosts ansible/pi-checkup.yml --ask-become-pass
 
 # ---------------------------------------------------------------------------
