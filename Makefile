@@ -124,7 +124,7 @@ js-check:
 # ---------------------------------------------------------------------------
 ## docker-build: build pispot-ui:latest image for linux/arm64
 docker-build:
-	docker build --platform $(PLATFORM) \
+	docker build --pull --platform $(PLATFORM) \
 	    --build-arg COMMIT=$(COMMIT) \
 	    --build-arg DIRTY=$(DIRTY) \
 	    --build-arg BUILD_TIME=$(BUILD_TIME) \

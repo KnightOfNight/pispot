@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 # ---- build stage ---------------------------------------------------------
-FROM golang:1.26-alpine AS build
+FROM golang:1.27-alpine AS build
 
 WORKDIR /src
 
@@ -32,7 +32,7 @@ RUN go build -trimpath \
       -o /out/pispot-ui ./dashboard/cmd/pispot-ui
 
 # ---- runtime stage -------------------------------------------------------
-FROM alpine:3.20
+FROM alpine:3.24
 
 # Tools required at runtime:
 #   iw       — station dump, WAN link info
