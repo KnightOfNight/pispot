@@ -66,7 +66,7 @@ JS_FILES := $(wildcard dashboard/internal/web/static/*.js)
         test vet fmt js-check tidy \
         docker-build image-size \
         ship-dashboard restart-dashboard \
-        deploy-authd _deploy-authd-no-setup deploy-dashboard deploy-all \
+        deploy-authd _deploy-authd-no-setup deploy-dashboard deploy-all deploy-cert \
         bootstrap setup checkup \
         init gen-certs check-secrets \
         logs ssh clean help
@@ -164,6 +164,14 @@ deploy-authd: build-authd build-pispotctl
 
 ## _deploy-authd-no-setup: build binaries only, no Ansible (used by deploy-all)
 _deploy-authd-no-setup: build-authd build-pispotctl
+
+# ---------------------------------------------------------------------------
+# Deploy — TLS certificate
+# ---------------------------------------------------------------------------
+## deploy-cert: check ssl/ files, install them on the Pi, restart the dashboard if they changed
+deploy-cert: check-secrets
+	@printf "Ansible will prompt 'BECOME password:' — enter your Pi sudo password.\n"
+	ansible-playbook -i ansible/inventory/hosts ansible/pi-certs.yml --ask-become-pass
 
 # ---------------------------------------------------------------------------
 # Deploy — full stack
@@ -269,6 +277,7 @@ help:
 	@echo "  restart-dashboard  Pipe compose over SSH, up -d --no-build"
 	@echo "  deploy-dashboard   docker-build + ship-dashboard + restart-dashboard"
 	@echo "  deploy-authd       build-authd + build-pispotctl + Ansible pi-setup"
+	@echo "  deploy-cert        Check ssl/ files, install on Pi, restart dashboard if changed"
 	@echo "  deploy-all         build + setup + deploy authd + deploy dashboard (full stack)"
 	@echo ""
 	@echo "Ansible:"

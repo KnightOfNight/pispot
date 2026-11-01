@@ -1,0 +1,93 @@
+---
+- name: Deploy TLS certificate to the dashboard
+  hosts: all
+  become: true
+  gather_facts: false
+
+  vars:
+    pispot_tls_src_dir: "{{ playbook_dir }}/../ssl"
+    pispot_tls_dest_dir: /etc/pispot/certs
+    pispot_tls_src: "{{ pispot_tls_src_dir }}/{{ pispot_tls_cert_name }}"
+
+  tasks:
+    # Checked on the Mac before anything changes: a mismatched key would stop
+    # the dashboard starting, and it would keep restarting and failing.
+    - name: Check local cert files
+      delegate_to: localhost
+      become: false
+      run_once: true
+      tags: preflight
+      block:
+        - name: Read public key hash from certificate
+          shell: set -o pipefail; openssl x509 -in {{ (pispot_tls_src + '.crt') | quote }} -noout -pubkey | openssl sha256
+          args:
+            executable: /bin/bash
+          changed_when: false
+          check_mode: false
+          register: pispot_tls_crt_pubkey
+
+        - name: Read public key hash from private key
+          shell: set -o pipefail; openssl pkey -in {{ (pispot_tls_src + '.key') | quote }} -pubout | openssl sha256
+          args:
+            executable: /bin/bash
+          changed_when: false
+          check_mode: false
+          register: pispot_tls_key_pubkey
+
+        - name: Read issuer hash from certificate
+          command: openssl x509 -in {{ (pispot_tls_src + '.crt') | quote }} -noout -issuer_hash
+          changed_when: false
+          check_mode: false
+          register: pispot_tls_crt_issuer
+
+        - name: Read subject hash from CA bundle
+          command: openssl x509 -in {{ (pispot_tls_src + '.ca') | quote }} -noout -subject_hash
+          changed_when: false
+          check_mode: false
+          register: pispot_tls_ca_subject
+
+        - name: Check certificate hasn't expired
+          command: openssl x509 -in {{ (pispot_tls_src + '.crt') | quote }} -noout -checkend 0
+          changed_when: false
+          check_mode: false
+          failed_when: false
+          register: pispot_tls_expiry
+
+        - name: Require a valid set of cert files
+          assert:
+            quiet: true
+            that:
+              - pispot_tls_crt_pubkey.stdout == pispot_tls_key_pubkey.stdout
+              - pispot_tls_crt_issuer.stdout == pispot_tls_ca_subject.stdout
+              - pispot_tls_expiry.rc == 0
+            fail_msg: >-
+              {{ pispot_tls_cert_name }}: key matches cert:
+              {{ pispot_tls_crt_pubkey.stdout == pispot_tls_key_pubkey.stdout }},
+              CA bundle starts with the cert's issuer:
+              {{ pispot_tls_crt_issuer.stdout == pispot_tls_ca_subject.stdout }},
+              cert not expired: {{ pispot_tls_expiry.rc == 0 }}.
+              Nothing was changed on the Pi.
+
+    - name: Install TLS files
+      import_tasks: tasks/tls-certs.yml
+
+    # The dashboard only loads its cert at startup.
+    - name: Restart dashboard
+      command: docker restart pispot-ui
+      when: pispot_tls_files is changed or pispot_tls_fullchain is changed
+
+    - name: Check dashboard is serving the installed cert
+      shell: >-
+        installed=$(openssl x509 -in {{ (pispot_tls_dest_dir + '/' + pispot_tls_cert_name + '.crt') | quote }}
+        -noout -fingerprint -sha256 | cut -d= -f2);
+        served=$(openssl s_client -connect 127.0.0.1:443 </dev/null 2>/dev/null
+        | openssl x509 -noout -fingerprint -sha256 | cut -d= -f2);
+        test -n "$installed" && test "$installed" = "$served"
+      args:
+        executable: /bin/bash
+      changed_when: false
+      check_mode: false
+      register: pispot_tls_served
+      until: pispot_tls_served.rc == 0
+      retries: 10
+      delay: 2

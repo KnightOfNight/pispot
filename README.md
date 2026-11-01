@@ -161,6 +161,10 @@ make gen-certs
 # then set PISPOT_TLS_CERT_NAME=test_cert in dashboard/.env
 ```
 
+To install a renewed cert later, replace the files in `ssl/` under the same
+name and run `make deploy-cert`. It checks the files first, changes nothing
+else on the Pi, and confirms the dashboard is serving the new cert.
+
 ### 4. Build
 
 ```sh
@@ -204,12 +208,13 @@ all services and briefly disconnects active dashboard users.
 ```sh
 make deploy-dashboard   # rebuild and redeploy the dashboard only
 make deploy-authd       # rebuild and redeploy pispot-authd + pispotctl only
+make deploy-cert        # install renewed TLS cert from ssl/, restart dashboard
 make checkup            # read-only Ansible health check
 make logs               # ssh to Pi and run pispotctl logs
 make ssh                # open an SSH session to the Pi
 ```
 
-> `deploy-authd` and `checkup` run Ansible and will prompt `BECOME password:` —
+> `deploy-authd`, `deploy-cert` and `checkup` run Ansible and will prompt `BECOME password:` —
 > enter the sudo password for your Pi user account.
 
 ## Upgrading the Pi
@@ -321,6 +326,7 @@ Deploy:
   make restart-dashboard  pipe compose over SSH, docker compose up -d --no-build
   make deploy-dashboard   docker-build + ship-dashboard + restart-dashboard
   make deploy-authd       build-authd + build-pispotctl + Ansible pi-setup
+  make deploy-cert        check ssl/ files, install on Pi, restart dashboard if changed
   make deploy-all         full stack deploy with confirmation prompt
 
 Ansible:

@@ -162,47 +162,8 @@
         state: started
         masked: false
 
-    - name: Create pispot TLS certificate directory
-      file:
-        path: "{{ pispot_tls_dest_dir }}"
-        state: directory
-        owner: root
-        group: root
-        mode: "0755"
-
-    - name: Copy pispot TLS certificate
-      copy:
-        src: "{{ pispot_tls_src_dir }}/{{ pispot_tls_cert_name }}.crt"
-        dest: "{{ pispot_tls_dest_dir }}/{{ pispot_tls_cert_name }}.crt"
-        owner: root
-        group: root
-        mode: "0644"
-
-    - name: Copy pispot TLS private key
-      copy:
-        src: "{{ pispot_tls_src_dir }}/{{ pispot_tls_cert_name }}.key"
-        dest: "{{ pispot_tls_dest_dir }}/{{ pispot_tls_cert_name }}.key"
-        owner: root
-        group: root
-        mode: "0600"
-
-    - name: Copy pispot TLS CA certificate
-      copy:
-        src: "{{ pispot_tls_src_dir }}/{{ pispot_tls_cert_name }}.ca"
-        dest: "{{ pispot_tls_dest_dir }}/{{ pispot_tls_cert_name }}.ca"
-        owner: root
-        group: root
-        mode: "0644"
-
-    - name: Install pispot TLS fullchain
-      copy:
-        dest: "{{ pispot_tls_dest_dir }}/fullchain.pem"
-        owner: root
-        group: root
-        mode: "0644"
-        content: |
-          {{ lookup('file', pispot_tls_src_dir + '/' + pispot_tls_cert_name + '.crt') }}
-          {{ lookup('file', pispot_tls_src_dir + '/' + pispot_tls_cert_name + '.ca') }}
+    - name: Install pispot TLS files
+      import_tasks: tasks/tls-certs.yml
 
     - name: Configure hostapd
       copy:

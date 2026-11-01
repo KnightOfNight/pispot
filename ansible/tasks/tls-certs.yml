@@ -1,0 +1,38 @@
+---
+# Install the TLS cert files on the Pi. Shared by pi-setup.yml and pi-certs.yml.
+# Expects pispot_tls_src_dir, pispot_tls_dest_dir and pispot_tls_cert_name.
+
+- name: Create pispot TLS certificate directory
+  file:
+    path: "{{ pispot_tls_dest_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Copy pispot TLS files
+  copy:
+    src: "{{ pispot_tls_src_dir }}/{{ pispot_tls_cert_name }}.{{ item.ext }}"
+    dest: "{{ pispot_tls_dest_dir }}/{{ pispot_tls_cert_name }}.{{ item.ext }}"
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  diff: false
+  loop:
+    - { ext: crt, mode: "0644" }
+    - { ext: key, mode: "0600" }
+    - { ext: ca, mode: "0644" }
+  loop_control:
+    label: "{{ pispot_tls_cert_name }}.{{ item.ext }}"
+  register: pispot_tls_files
+
+- name: Install pispot TLS fullchain
+  copy:
+    dest: "{{ pispot_tls_dest_dir }}/fullchain.pem"
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      {{ lookup('file', pispot_tls_src_dir + '/' + pispot_tls_cert_name + '.crt') }}
+      {{ lookup('file', pispot_tls_src_dir + '/' + pispot_tls_cert_name + '.ca') }}
+  register: pispot_tls_fullchain
