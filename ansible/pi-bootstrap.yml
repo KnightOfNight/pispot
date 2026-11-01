@@ -23,6 +23,7 @@
           - wpasupplicant
           - rfkill
           - btop
+          - tmux
         state: present
 
     - name: Create apt keyrings directory

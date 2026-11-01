@@ -212,6 +212,34 @@ make ssh                # open an SSH session to the Pi
 > `deploy-authd` and `checkup` run Ansible and will prompt `BECOME password:` —
 > enter the sudo password for your Pi user account.
 
+## Upgrading the Pi
+
+Always run upgrades inside `tmux`. Network connections to the Pi can drop
+during an upgrade, especially over the hotspot, and an upgrade running in a
+plain SSH session could be interrupted partway through. `make bootstrap`
+installs `tmux`; on a Pi bootstrapped before it was added, run
+`sudo apt install tmux`.
+
+Start the session, or rejoin it after a disconnect, with the same command:
+
+```sh
+tmux new -A -s upgrade
+```
+
+Then, inside the session:
+
+```sh
+sudo apt update
+apt list --upgradable
+sudo apt -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold full-upgrade
+```
+
+The `force-conf` options keep existing config files, so package defaults
+don't replace the ones set up by `pi-setup.yml`.
+
+Reboot once the upgrade has finished. A `tmux` session doesn't survive a
+reboot, so start a new one for any later work.
+
 ## User accounts and access
 
 Two Unix groups control access:
