@@ -29,6 +29,7 @@ import (
 	"github.com/mcs-net/pispot/host/internal/diag"
 	"github.com/mcs-net/pispot/host/internal/groups"
 	"github.com/mcs-net/pispot/host/internal/socket"
+	"github.com/mcs-net/pispot/host/internal/users"
 	"github.com/mcs-net/pispot/host/internal/wan"
 	"github.com/mcs-net/pispot/host/internal/wifi"
 )
@@ -48,8 +49,9 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	accounts := users.New(cfg)
 	handler := func(ctx context.Context, req socket.Request) socket.Response {
-		return handleRequest(ctx, req, cfg)
+		return handleRequest(ctx, req, cfg, accounts)
 	}
 
 	if err := socket.Serve(ctx, *socketPath, handler); err != nil {
@@ -58,7 +60,7 @@ func main() {
 	log.Printf("pispot-authd stopped")
 }
 
-func handleRequest(ctx context.Context, req socket.Request, cfg groups.Config) socket.Response {
+func handleRequest(ctx context.Context, req socket.Request, cfg groups.Config, accounts *users.Manager) socket.Response {
 	log.Printf("dispatch: op=%q", req.Op)
 	switch req.Op {
 	case socket.OpAuth:
@@ -78,10 +80,42 @@ func handleRequest(ctx context.Context, req socket.Request, cfg groups.Config) s
 	case socket.OpDiag:
 		report := diag.Collect(ctx)
 		return socket.Response{Ok: true, Diag: &report}
+	case socket.OpUserList, socket.OpUserCreate, socket.OpUserUpdate, socket.OpUserDelete:
+		return handleUserOp(req, accounts)
 	default:
 		log.Printf("dispatch: unknown op=%q", req.Op)
 		return socket.Response{Error: "unknown op"}
 	}
+}
+
+// handleUserOp never logs req.Password.
+func handleUserOp(req socket.Request, accounts *users.Manager) socket.Response {
+	var err error
+	switch req.Op {
+	case socket.OpUserList:
+		list, listErr := accounts.List()
+		if listErr != nil {
+			log.Printf("user op: list failed: %v", listErr)
+			return socket.Response{Error: "couldn't read the account list"}
+		}
+		return socket.Response{Ok: true, Users: list}
+	case socket.OpUserCreate:
+		var ms users.Membership
+		if req.Membership != nil {
+			ms = *req.Membership
+		}
+		err = accounts.Create(req.Actor, req.Username, req.Password, ms)
+	case socket.OpUserUpdate:
+		err = accounts.Update(req.Actor, req.Username, req.Membership, req.Password)
+	case socket.OpUserDelete:
+		err = accounts.Delete(req.Actor, req.Username)
+	}
+	if err != nil {
+		log.Printf("user op: %s by actor=%q on user=%q refused or failed: %v", req.Op, req.Actor, req.Username, err)
+		return socket.Response{Error: err.Error()}
+	}
+	log.Printf("user op: %s by actor=%q on user=%q ok", req.Op, req.Actor, req.Username)
+	return socket.Response{Ok: true}
 }
 
 func handleWanOp(ctx context.Context, name string, op func(context.Context) error) socket.Response {

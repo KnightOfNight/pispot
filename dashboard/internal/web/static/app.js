@@ -332,7 +332,7 @@
 
   // --- tabs ---------------------------------------------------------------
 
-  const TABS = ["networking", "power", "logs"];
+  const TABS = ["networking", "power", "logs", "users"];
   let activeTab = "networking";
   let tabsKnown = false;
 
@@ -363,6 +363,7 @@
     power.disabled = !m.pwrgate_connected;
     power.title = m.pwrgate_connected ? "" : "Epic PWRgate not connected";
     $("tab-logs").hidden = m.role !== "admin";
+    $("tab-users").hidden = m.role !== "admin";
 
     if (!tabsKnown) {
       tabsKnown = true;

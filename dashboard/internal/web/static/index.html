@@ -28,6 +28,7 @@
     <button type="button" class="tab" id="tab-networking" role="tab" aria-controls="panel-networking">Networking</button>
     <button type="button" class="tab" id="tab-power" role="tab" aria-controls="panel-power" disabled title="Epic PWRgate not connected">Power</button>
     <button type="button" class="tab" id="tab-logs" role="tab" aria-controls="panel-logs" hidden>Logs</button>
+    <button type="button" class="tab" id="tab-users" role="tab" aria-controls="panel-users" hidden>Users</button>
   </nav>
 
   <main id="panel-networking" role="tabpanel" aria-labelledby="tab-networking">
@@ -117,6 +118,33 @@
     <div id="logs-content"></div>
   </main>
 
+  <main id="panel-users" role="tabpanel" aria-labelledby="tab-users" hidden>
+    <section>
+      <h2>Users</h2>
+      <div class="error" id="users-error"></div>
+      <table class="users-table">
+        <thead>
+          <tr><th>User</th><th>Read-only</th><th>Admin</th><th>Host access</th><th></th></tr>
+        </thead>
+        <tbody id="users-rows"></tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Add user</h2>
+      <form id="user-add" class="users-form" autocomplete="off">
+        <input class="wifi-input" id="add-username" placeholder="Username" autocomplete="off" autocapitalize="none" spellcheck="false" required>
+        <input class="wifi-input" id="add-password" type="password" placeholder="Password" autocomplete="new-password" required>
+        <input class="wifi-input" id="add-confirm" type="password" placeholder="Confirm password" autocomplete="new-password" required>
+        <label><input type="checkbox" id="add-readonly" checked> Read-only</label>
+        <label><input type="checkbox" id="add-admin"> Admin</label>
+        <button type="submit" class="ctrl-btn">Add user</button>
+      </form>
+      <div class="sub">New users can log in to this dashboard only, not SSH.</div>
+      <div class="error" id="user-add-error"></div>
+    </section>
+  </main>
+
   <footer>
     <div class="meta">
       <span id="meta-host">-</span> &middot;
@@ -130,5 +158,6 @@
 
   <script src="/app.js"></script>
   <script src="/logs.js"></script>
+  <script src="/users.js"></script>
 </body>
 </html>

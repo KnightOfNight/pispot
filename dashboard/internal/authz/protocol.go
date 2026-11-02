@@ -19,6 +19,17 @@ type authRequest struct {
 	// WiFi fields — used for wifi_add and wifi_remove ops.
 	SSID string `json:"ssid,omitempty"`
 	PSK  string `json:"psk,omitempty"`
+	// Actor is the logged-in user making a user_* change. Username and
+	// Password are the account being changed.
+	Actor string `json:"actor,omitempty"`
+	// Membership is the requested groups. Nil leaves them unchanged.
+	Membership *UserMembership `json:"membership,omitempty"`
+}
+
+// UserMembership is an account's dashboard group membership.
+type UserMembership struct {
+	Readonly bool `json:"readonly"`
+	Admin    bool `json:"admin"`
 }
 
 // authResponse is returned by pispot-authd.
@@ -32,6 +43,8 @@ type authResponse struct {
 	Networks []wifiNetwork `json:"networks,omitempty"`
 	// Diag is passed through to the browser without being decoded here.
 	Diag json.RawMessage `json:"diag,omitempty"`
+	// Users is passed through to the browser without being decoded here.
+	Users json.RawMessage `json:"users,omitempty"`
 }
 
 // wifiNetwork is one network entry in a wifi_list response.

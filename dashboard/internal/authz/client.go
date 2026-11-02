@@ -96,6 +96,40 @@ func CallDiag(ctx context.Context, socketPath string) (json.RawMessage, error) {
 	return resp.Diag, nil
 }
 
+// CallUserList retrieves the accounts shown on the Users tab.
+func CallUserList(ctx context.Context, socketPath string) (json.RawMessage, error) {
+	resp, err := callSocket(ctx, socketPath, authRequest{Op: "user_list"})
+	if err != nil {
+		return nil, err
+	}
+	if !resp.Ok {
+		return nil, fmt.Errorf("%s", resp.Error)
+	}
+	if resp.Users == nil {
+		return json.RawMessage("[]"), nil
+	}
+	return resp.Users, nil
+}
+
+// CallUserChange sends one user_create, user_update or user_delete op on
+// behalf of actor. The helper enforces the rules about what actor may do.
+func CallUserChange(ctx context.Context, socketPath, op, actor, username, password string, ms *UserMembership) error {
+	resp, err := callSocket(ctx, socketPath, authRequest{
+		Op:         op,
+		Actor:      actor,
+		Username:   username,
+		Password:   password,
+		Membership: ms,
+	})
+	if err != nil {
+		return err
+	}
+	if !resp.Ok {
+		return fmt.Errorf("%s", resp.Error)
+	}
+	return nil
+}
+
 // CallWifiList retrieves the current list of configured WiFi networks.
 func CallWifiList(ctx context.Context, socketPath string) ([]WifiNetwork, error) {
 	log.Printf("authz: sending op=%q to helper at %s", "wifi_list", socketPath)

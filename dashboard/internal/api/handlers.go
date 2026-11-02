@@ -490,6 +490,115 @@ func (s *Server) Logs() http.HandlerFunc {
 	}
 }
 
+// userChangeTimeout covers useradd, which can be slow on an SD card.
+const userChangeTimeout = 30 * time.Second
+
+func (s *Server) userAdminCheck(w http.ResponseWriter, r *http.Request) bool {
+	if authz.RoleFromContext(r.Context()) != "admin" {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return false
+	}
+	if s.cfg.AuthSocket == "" {
+		http.Error(w, "auth socket not configured", http.StatusServiceUnavailable)
+		return false
+	}
+	return true
+}
+
+// Users handles GET /api/users (list) and POST /api/users (create).
+// Requires admin role.
+func (s *Server) Users() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !s.userAdminCheck(w, r) {
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), userChangeTimeout)
+		defer cancel()
+		actor := authz.UsernameFromContext(r.Context())
+
+		switch r.Method {
+		case http.MethodGet:
+			list, err := authz.CallUserList(ctx, s.cfg.AuthSocket)
+			if err != nil {
+				log.Printf("users list: %v", err)
+				jsonErr(w, http.StatusServiceUnavailable, err.Error())
+				return
+			}
+			w.Header().Set("Content-Type", "application/json; charset=utf-8")
+			w.Header().Set("Cache-Control", "no-store")
+			_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "me": actor, "users": list})
+
+		case http.MethodPost:
+			var body struct {
+				Username   string               `json:"username"`
+				Password   string               `json:"password"`
+				Membership authz.UserMembership `json:"membership"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				jsonErr(w, http.StatusBadRequest, "invalid JSON body")
+				return
+			}
+			if err := authz.CallUserChange(ctx, s.cfg.AuthSocket, "user_create", actor, body.Username, body.Password, &body.Membership); err != nil {
+				jsonErr(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			jsonOK(w)
+
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	}
+}
+
+// User handles PATCH and DELETE /api/users/{username}. Requires admin role.
+// Cached logins for the account are dropped after every attempted change.
+func (s *Server) User() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !s.userAdminCheck(w, r) {
+			return
+		}
+		username := strings.TrimPrefix(r.URL.Path, "/api/users/")
+		if username == "" || strings.Contains(username, "/") {
+			jsonErr(w, http.StatusBadRequest, "username required in path")
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), userChangeTimeout)
+		defer cancel()
+		actor := authz.UsernameFromContext(r.Context())
+
+		switch r.Method {
+		case http.MethodPatch:
+			var body struct {
+				Password   string                `json:"password"`
+				Membership *authz.UserMembership `json:"membership"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				jsonErr(w, http.StatusBadRequest, "invalid JSON body")
+				return
+			}
+			err := authz.CallUserChange(ctx, s.cfg.AuthSocket, "user_update", actor, username, body.Password, body.Membership)
+			authz.InvalidateUser(username)
+			if err != nil {
+				jsonErr(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			jsonOK(w)
+
+		case http.MethodDelete:
+			err := authz.CallUserChange(ctx, s.cfg.AuthSocket, "user_delete", actor, username, "", nil)
+			authz.InvalidateUser(username)
+			if err != nil {
+				jsonErr(w, http.StatusBadRequest, err.Error())
+				return
+			}
+			jsonOK(w)
+
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	}
+}
+
 // Healthz returns a trivial liveness endpoint.
 func (s *Server) Healthz() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

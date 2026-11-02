@@ -268,6 +268,19 @@ section h2 {
 .check-status { font-weight: 700; font-size: 11px; }
 .check-status.info { color: var(--muted); }
 
+/* Users tab. */
+.users-table td { vertical-align: middle; }
+.users-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.users-password-row td { background: var(--bg); }
+.users-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.users-form label { color: var(--muted); }
+
 /* Ensure the HTML `hidden` attribute always wins the specificity battle
    against class-based `display` rules (e.g. `.tag { display: inline-block }`).
    Without this, toggling `el.hidden = true` from JS can appear to do

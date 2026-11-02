@@ -196,3 +196,26 @@ func TestRoleFromContextEmpty(t *testing.T) {
 		t.Errorf("empty context: got %q, want empty", r)
 	}
 }
+
+func TestInvalidateRemovesOnlyThatUser(t *testing.T) {
+	c := newAuthCache()
+	c.set("alice", "pw1", "admin")
+	c.set("alice", "pw2", "admin")
+	c.set("alice2", "pw1", "readonly")
+	c.invalidate("alice")
+	if _, hit := c.get("alice", "pw1"); hit {
+		t.Error("alice pw1 still cached")
+	}
+	if _, hit := c.get("alice", "pw2"); hit {
+		t.Error("alice pw2 still cached")
+	}
+	if _, hit := c.get("alice2", "pw1"); !hit {
+		t.Error("alice2 was removed too")
+	}
+}
+
+func TestUsernameFromContextEmpty(t *testing.T) {
+	if got := UsernameFromContext(context.Background()); got != "" {
+		t.Errorf("got %q", got)
+	}
+}

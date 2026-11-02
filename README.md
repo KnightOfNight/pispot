@@ -257,7 +257,7 @@ Two Unix groups control access:
 Both groups are created automatically by `make setup`. The user you entered
 in `make init` is automatically added to `pispot-admin` on first deploy.
 
-To add additional users on the Pi:
+Admins can manage users on the dashboard's Users tab, or on the Pi:
 
 ```sh
 sudo useradd -m alice
@@ -275,11 +275,19 @@ Credentials are validated via PAM on each login (cached for 5 minutes).
 | Networking | Interfaces, hotspot clients, WAN, system | All logins |
 | Power | Epic PWRgate, grayed out unless it's on USB | All logins |
 | Logs | Health summary, system details and service logs | `pispot-admin` only |
+| Users | Add, change and delete accounts and their dashboard groups | `pispot-admin` only |
 
 The Logs tab is read-only and shows the output of a fixed list of commands in
 `host/internal/diag/diag.go`. It never reads the Wi-Fi configs or TLS private
 keys, and its output also passes through a redaction filter. When adding a
 source, keep secrets out of it: the filter is only a second layer.
+
+The Users tab works on real Unix accounts with UIDs from 1000 to 59999, and
+only changes membership of `pispot-ro` and `pispot-admin`. You can't delete
+your own account or remove your own admin access. New accounts get no shell,
+so they can log in to the dashboard but not SSH. Deleting an account keeps its
+home folder. Setting a password changes the account's real Unix password,
+including for SSH and `sudo` if that account has them.
 
 ## pispotctl
 

@@ -10,7 +10,10 @@ import (
 // contextKey is used to attach the authenticated role to the request context.
 type contextKey string
 
-const roleKey contextKey = "pispot-role"
+const (
+	roleKey     contextKey = "pispot-role"
+	usernameKey contextKey = "pispot-username"
+)
 
 // Middleware returns an HTTP middleware that enforces Basic Auth on all
 // routes except /healthz. Authentication is delegated to the pispot-authd
@@ -31,6 +34,7 @@ func Middleware(socketPath, realm string) func(http.Handler) http.Handler {
 	}
 
 	cache := newAuthCache()
+	activeCache.Store(cache)
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -49,8 +53,7 @@ func Middleware(socketPath, realm string) func(http.Handler) http.Handler {
 
 			// Cache hit: skip socket call.
 			if role, hit := cache.get(username, password); hit {
-				ctx := context.WithValue(r.Context(), roleKey, role)
-				next.ServeHTTP(w, r.WithContext(ctx))
+				next.ServeHTTP(w, r.WithContext(withIdentity(r.Context(), username, role)))
 				return
 			}
 
@@ -75,10 +78,21 @@ func Middleware(socketPath, realm string) func(http.Handler) http.Handler {
 
 			log.Printf("authz: ok user=%q role=%s (cached for 5m)", username, resp.Role)
 			cache.set(username, password, resp.Role)
-			ctx := context.WithValue(r.Context(), roleKey, resp.Role)
-			next.ServeHTTP(w, r.WithContext(ctx))
+			next.ServeHTTP(w, r.WithContext(withIdentity(r.Context(), username, resp.Role)))
 		})
 	}
+}
+
+func withIdentity(ctx context.Context, username, role string) context.Context {
+	ctx = context.WithValue(ctx, usernameKey, username)
+	return context.WithValue(ctx, roleKey, role)
+}
+
+// UsernameFromContext returns the authenticated username, or "" when auth
+// is disabled (local dev) or the route is unauthenticated (/healthz).
+func UsernameFromContext(ctx context.Context) string {
+	v, _ := ctx.Value(usernameKey).(string)
+	return v
 }
 
 // RoleFromContext returns the pispot role ("readonly" or "admin") attached

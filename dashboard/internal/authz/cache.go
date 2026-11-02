@@ -3,7 +3,9 @@ package authz
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -26,6 +28,19 @@ type authCache struct {
 	items map[string]cachedEntry
 }
 
+// activeCache is the cache used by the running middleware, so account
+// changes can drop cached logins.
+var activeCache atomic.Pointer[authCache]
+
+// InvalidateUser drops cached logins for username, so a deleted or demoted
+// account, or an old password, stops working immediately instead of when the
+// cache entry expires.
+func InvalidateUser(username string) {
+	if c := activeCache.Load(); c != nil {
+		c.invalidate(username)
+	}
+}
+
 func newAuthCache() *authCache {
 	return &authCache{items: make(map[string]cachedEntry)}
 }
@@ -33,6 +48,17 @@ func newAuthCache() *authCache {
 func cacheKey(username, password string) string {
 	h := sha256.Sum256([]byte(password))
 	return username + ":" + hex.EncodeToString(h[:])
+}
+
+func (c *authCache) invalidate(username string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	prefix := username + ":"
+	for key := range c.items {
+		if strings.HasPrefix(key, prefix) {
+			delete(c.items, key)
+		}
+	}
 }
 
 // get returns the cached role and true if a non-expired entry exists.

@@ -57,6 +57,11 @@ func main() {
 	mux.HandleFunc("/api/wifi/networks/", srv.WifiNetwork())
 	mux.HandleFunc("/api/wifi/reload", srv.WifiReload())
 	mux.HandleFunc("/api/logs", srv.Logs())
+	// Browsers send Basic Auth automatically, so reject writes from other
+	// sites: these routes can create admin accounts.
+	crossOrigin := http.NewCrossOriginProtection()
+	mux.Handle("/api/users", crossOrigin.Handler(srv.Users()))
+	mux.Handle("/api/users/", crossOrigin.Handler(srv.User()))
 	mux.HandleFunc("/healthz", srv.Healthz())
 
 	// Auth middleware: no-op when AUTH_SOCKET is unset (local dev).
