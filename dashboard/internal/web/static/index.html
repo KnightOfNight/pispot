@@ -24,7 +24,13 @@
     </div>
   </header>
 
-  <main>
+  <nav class="tabs" role="tablist" aria-label="Dashboard sections">
+    <button type="button" class="tab" id="tab-networking" role="tab" aria-controls="panel-networking">Networking</button>
+    <button type="button" class="tab" id="tab-power" role="tab" aria-controls="panel-power" disabled title="Epic PWRgate not connected">Power</button>
+    <button type="button" class="tab" id="tab-logs" role="tab" aria-controls="panel-logs" hidden>Logs</button>
+  </nav>
+
+  <main id="panel-networking" role="tabpanel" aria-labelledby="tab-networking">
     <section id="section-interfaces">
       <h2>Interfaces</h2>
       <table class="iface-table">
@@ -93,6 +99,24 @@
     </div>
   </main>
 
+  <main id="panel-power" role="tabpanel" aria-labelledby="tab-power" hidden>
+    <section>
+      <h2>Power</h2>
+      <div class="summary">Epic PWRgate detected on USB. Readings and settings aren't built yet.</div>
+    </section>
+  </main>
+
+  <main id="panel-logs" role="tabpanel" aria-labelledby="tab-logs" hidden>
+    <div class="logs-toolbar">
+      <button type="button" class="ctrl-btn" id="logs-expand">Expand all</button>
+      <button type="button" class="ctrl-btn" id="logs-collapse">Collapse all</button>
+      <button type="button" class="ctrl-btn" id="logs-refresh">Refresh</button>
+      <span class="sub" id="logs-updated"></span>
+    </div>
+    <div class="error" id="logs-error"></div>
+    <div id="logs-content"></div>
+  </main>
+
   <footer>
     <div class="meta">
       <span id="meta-host">-</span> &middot;
@@ -105,5 +129,6 @@
   </footer>
 
   <script src="/app.js"></script>
+  <script src="/logs.js"></script>
 </body>
 </html>

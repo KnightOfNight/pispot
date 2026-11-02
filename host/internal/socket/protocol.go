@@ -2,6 +2,8 @@
 // pispot-authd.
 package socket
 
+import "github.com/mcs-net/pispot/host/internal/diag"
+
 // Op constants for the socket protocol.
 const (
 	OpAuth       = "auth"
@@ -11,6 +13,7 @@ const (
 	OpWifiAdd    = "wifi_add"
 	OpWifiRemove = "wifi_remove"
 	OpWifiReload = "wifi_reload"
+	OpDiag       = "diag"
 )
 
 // Request is sent from pispot-ui to pispot-authd over the Unix socket.
@@ -33,6 +36,8 @@ type Response struct {
 	Error    string `json:"error,omitempty"`
 	// Networks is populated by wifi_list responses.
 	Networks []Network `json:"networks,omitempty"`
+	// Diag is populated by diag responses.
+	Diag *diag.Report `json:"diag,omitempty"`
 }
 
 // Network is one wpa_supplicant network entry returned in wifi_list responses.

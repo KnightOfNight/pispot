@@ -321,12 +321,66 @@
   function render(data) {
     // Update role before rendering sections that depend on it.
     currentRole = (data.meta && data.meta.role) || "";
+    renderTabs(data.meta || {});
     renderInterfaces(data.interfaces || {});
     renderHotspot(data.hotspot || {});
     renderWAN(data.wan || {});
     renderAdmin(data.admin || {});
     renderSystem(data.system || {});
     renderMeta(data.meta || {});
+  }
+
+  // --- tabs ---------------------------------------------------------------
+
+  const TABS = ["networking", "power", "logs"];
+  let activeTab = "networking";
+  let tabsKnown = false;
+
+  function tabAvailable(name) {
+    const tab = $(`tab-${name}`);
+    return Boolean(tab) && !tab.disabled && !tab.hidden;
+  }
+
+  function showTab(name) {
+    activeTab = TABS.includes(name) && tabAvailable(name) ? name : "networking";
+    for (const t of TABS) {
+      const selected = t === activeTab;
+      $(`panel-${t}`).hidden = !selected;
+      $(`tab-${t}`).classList.toggle("tab-active", selected);
+      $(`tab-${t}`).setAttribute("aria-selected", String(selected));
+    }
+    document.dispatchEvent(new CustomEvent("pispot:tab", { detail: activeTab }));
+  }
+
+  function tabFromHash() {
+    return window.location.hash.replace(/^#/, "");
+  }
+
+  // Availability comes from /api/stats, so a tab named in the URL can only
+  // be honoured after the first response.
+  function renderTabs(m) {
+    const power = $("tab-power");
+    power.disabled = !m.pwrgate_connected;
+    power.title = m.pwrgate_connected ? "" : "Epic PWRgate not connected";
+    $("tab-logs").hidden = m.role !== "admin";
+
+    if (!tabsKnown) {
+      tabsKnown = true;
+      showTab(tabFromHash());
+    } else if (!tabAvailable(activeTab)) {
+      showTab("networking");
+    }
+  }
+
+  function initTabs() {
+    for (const t of TABS) {
+      $(`tab-${t}`).addEventListener("click", () => {
+        window.location.hash = t;
+      });
+    }
+    window.addEventListener("hashchange", () => {
+      if (tabsKnown) showTab(tabFromHash());
+    });
   }
 
   // --- WAN control operations ---------------------------------------------
@@ -439,6 +493,7 @@
     if (upBtn)   upBtn.addEventListener("click",   () => wanOp("up"));
     if (downBtn) downBtn.addEventListener("click", () => wanOp("down"));
 
+    initTabs();
     setInterval_(chosen);
     tick(); // immediate first fetch
   }

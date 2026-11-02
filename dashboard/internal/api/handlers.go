@@ -2,6 +2,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 	"github.com/mcs-net/pispot/dashboard/internal/config"
 	"github.com/mcs-net/pispot/dashboard/internal/hotspot"
 	"github.com/mcs-net/pispot/dashboard/internal/netstats"
+	"github.com/mcs-net/pispot/dashboard/internal/pwrgate"
 	"github.com/mcs-net/pispot/dashboard/internal/system"
 	"github.com/mcs-net/pispot/dashboard/internal/wan"
 )
@@ -94,6 +96,8 @@ type Meta struct {
 	Dirty         bool   `json:"dirty"`
 	BuildTime     string `json:"build_time"`
 	Role          string `json:"role"`
+	// PWRgateConnected reports whether the device is on USB.
+	PWRgateConnected bool `json:"pwrgate_connected"`
 }
 
 // Stats is the top-level response payload for GET /api/stats.
@@ -446,12 +450,13 @@ func (s *Server) Stats() http.HandlerFunc {
 			Admin:      s.adminFromCollector(r),
 			System:     s.systemFromCollector(),
 			Meta: Meta{
-				Hostname:      host,
-				UptimeSeconds: int64(time.Since(s.started).Seconds()),
-				Commit:        buildinfo.Commit,
-				Dirty:         buildinfo.IsDirty(),
-				BuildTime:     buildinfo.BuildTime,
-				Role:          authz.RoleFromContext(r.Context()),
+				Hostname:         host,
+				UptimeSeconds:    int64(time.Since(s.started).Seconds()),
+				Commit:           buildinfo.Commit,
+				Dirty:            buildinfo.IsDirty(),
+				BuildTime:        buildinfo.BuildTime,
+				Role:             authz.RoleFromContext(r.Context()),
+				PWRgateConnected: pwrgate.Present(s.cfg.SysPath),
 			},
 		}
 
@@ -460,6 +465,28 @@ func (s *Server) Stats() http.HandlerFunc {
 		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")
 		_ = enc.Encode(stats)
+	}
+}
+
+// Logs handles GET /api/logs, the read-only report behind the Logs tab.
+// Requires admin role, because logs include usernames, network names and
+// client details.
+func (s *Server) Logs() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !s.wifiAdminCheck(w, r, http.MethodGet) {
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
+		defer cancel()
+		report, err := authz.CallDiag(ctx, s.cfg.AuthSocket)
+		if err != nil {
+			log.Printf("logs: %v", err)
+			jsonErr(w, http.StatusServiceUnavailable, "helper unavailable")
+			return
+		}
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		_, _ = w.Write(report)
 	}
 }
 

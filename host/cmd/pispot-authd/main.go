@@ -26,6 +26,7 @@ import (
 	"syscall"
 
 	"github.com/mcs-net/pispot/host/internal/auth"
+	"github.com/mcs-net/pispot/host/internal/diag"
 	"github.com/mcs-net/pispot/host/internal/groups"
 	"github.com/mcs-net/pispot/host/internal/socket"
 	"github.com/mcs-net/pispot/host/internal/wan"
@@ -74,6 +75,9 @@ func handleRequest(ctx context.Context, req socket.Request, cfg groups.Config) s
 		return handleWifiRemove(req)
 	case socket.OpWifiReload:
 		return handleWifiReload()
+	case socket.OpDiag:
+		report := diag.Collect(ctx)
+		return socket.Response{Ok: true, Diag: &report}
 	default:
 		log.Printf("dispatch: unknown op=%q", req.Op)
 		return socket.Response{Error: "unknown op"}

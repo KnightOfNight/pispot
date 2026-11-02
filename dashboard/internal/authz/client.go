@@ -58,6 +58,9 @@ func callSocket(ctx context.Context, socketPath string, req authRequest) (authRe
 		return resp, fmt.Errorf("auth socket unavailable: %w", err)
 	}
 	defer conn.Close()
+	if deadline, ok := ctx.Deadline(); ok {
+		_ = conn.SetDeadline(deadline)
+	}
 	if err := json.NewEncoder(conn).Encode(req); err != nil {
 		log.Printf("authz: op=%q encode failed: %v", req.Op, err)
 		return resp, fmt.Errorf("encode op request: %w", err)
@@ -79,6 +82,18 @@ func CallOp(ctx context.Context, socketPath, op string) (bool, string, error) {
 		return false, "", err
 	}
 	return resp.Ok, resp.Error, nil
+}
+
+// CallDiag retrieves the read-only system report for the Logs tab.
+func CallDiag(ctx context.Context, socketPath string) (json.RawMessage, error) {
+	resp, err := callSocket(ctx, socketPath, authRequest{Op: "diag"})
+	if err != nil {
+		return nil, err
+	}
+	if !resp.Ok {
+		return nil, fmt.Errorf("%s", resp.Error)
+	}
+	return resp.Diag, nil
 }
 
 // CallWifiList retrieves the current list of configured WiFi networks.

@@ -170,6 +170,104 @@ section h2 {
 .warn { color: var(--warn); }
 .bad  { color: var(--bad); }
 
+/* Tabs. */
+.tabs {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 12px 20px 0;
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  padding: 7px 16px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.tab:hover:not(:disabled) { color: var(--fg); }
+
+.tab.tab-active {
+  background: var(--panel);
+  color: var(--accent);
+  border-color: var(--border);
+}
+
+.tab:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Logs tab. */
+.logs-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.logs-group-title {
+  margin: 18px 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.log-section {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin-bottom: 6px;
+}
+
+.log-section > summary {
+  cursor: pointer;
+  padding: 8px 12px;
+  font-weight: 600;
+}
+
+.log-section > summary:hover { color: var(--accent); }
+
+.log-section .log-command {
+  margin-left: 8px;
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.log-output {
+  margin: 0;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  overflow-x: auto;
+  max-height: 480px;
+  overflow-y: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre;
+}
+
+.log-note {
+  padding: 6px 12px 0;
+  font-size: 12px;
+  color: var(--warn);
+}
+
+.check-table { margin: 0; }
+.check-table td:first-child { white-space: nowrap; width: 1%; font-weight: 600; }
+.check-table td:nth-child(2) { white-space: nowrap; width: 1%; }
+.check-status { font-weight: 700; font-size: 11px; }
+.check-status.info { color: var(--muted); }
+
 /* Ensure the HTML `hidden` attribute always wins the specificity battle
    against class-based `display` rules (e.g. `.tag { display: inline-block }`).
    Without this, toggling `el.hidden = true` from JS can appear to do

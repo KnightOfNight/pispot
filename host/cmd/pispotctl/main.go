@@ -309,5 +309,3 @@ func runSection(title string, name string, args ...string) {
 	}
 	fmt.Println()
 }
-
-

@@ -268,6 +268,19 @@ sudo usermod -aG pispot-admin alice   # or admin
 
 Credentials are validated via PAM on each login (cached for 5 minutes).
 
+## Dashboard tabs
+
+| Tab | Contents | Who sees it |
+|---|---|---|
+| Networking | Interfaces, hotspot clients, WAN, system | All logins |
+| Power | Epic PWRgate, grayed out unless it's on USB | All logins |
+| Logs | Health summary, system details and service logs | `pispot-admin` only |
+
+The Logs tab is read-only and shows the output of a fixed list of commands in
+`host/internal/diag/diag.go`. It never reads the Wi-Fi configs or TLS private
+keys, and its output also passes through a redaction filter. When adding a
+source, keep secrets out of it: the filter is only a second layer.
+
 ## pispotctl
 
 The `pispotctl` tool is installed at `/usr/local/bin/pispotctl` on the Pi

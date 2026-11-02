@@ -9,6 +9,8 @@
 // host sub-trees.
 package authz
 
+import "encoding/json"
+
 // authRequest is sent to pispot-authd over the Unix socket.
 type authRequest struct {
 	Op       string `json:"op"`
@@ -28,6 +30,8 @@ type authResponse struct {
 	Role     string        `json:"role,omitempty"`
 	Error    string        `json:"error,omitempty"`
 	Networks []wifiNetwork `json:"networks,omitempty"`
+	// Diag is passed through to the browser without being decoded here.
+	Diag json.RawMessage `json:"diag,omitempty"`
 }
 
 // wifiNetwork is one network entry in a wifi_list response.
