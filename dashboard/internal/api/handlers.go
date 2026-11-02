@@ -530,15 +530,15 @@ func (s *Server) Users() http.HandlerFunc {
 
 		case http.MethodPost:
 			var body struct {
-				Username   string               `json:"username"`
-				Password   string               `json:"password"`
-				Membership authz.UserMembership `json:"membership"`
+				Username string `json:"username"`
+				Password string `json:"password"`
+				Admin    bool   `json:"admin"`
 			}
 			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 				jsonErr(w, http.StatusBadRequest, "invalid JSON body")
 				return
 			}
-			if err := authz.CallUserChange(ctx, s.cfg.AuthSocket, "user_create", actor, body.Username, body.Password, &body.Membership); err != nil {
+			if err := authz.CallUserChange(ctx, s.cfg.AuthSocket, "user_create", actor, body.Username, body.Password, &body.Admin); err != nil {
 				jsonErr(w, http.StatusBadRequest, err.Error())
 				return
 			}
@@ -569,14 +569,14 @@ func (s *Server) User() http.HandlerFunc {
 		switch r.Method {
 		case http.MethodPatch:
 			var body struct {
-				Password   string                `json:"password"`
-				Membership *authz.UserMembership `json:"membership"`
+				Password string `json:"password"`
+				Admin    *bool  `json:"admin"`
 			}
 			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 				jsonErr(w, http.StatusBadRequest, "invalid JSON body")
 				return
 			}
-			err := authz.CallUserChange(ctx, s.cfg.AuthSocket, "user_update", actor, username, body.Password, body.Membership)
+			err := authz.CallUserChange(ctx, s.cfg.AuthSocket, "user_update", actor, username, body.Password, body.Admin)
 			authz.InvalidateUser(username)
 			if err != nil {
 				jsonErr(w, http.StatusBadRequest, err.Error())

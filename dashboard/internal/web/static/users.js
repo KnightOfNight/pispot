@@ -35,11 +35,6 @@
     return "";
   }
 
-  function hostAccess(u) {
-    if (u.sudo) return "SSH and sudo";
-    return u.can_log_in_to_shell ? "SSH" : "Dashboard only";
-  }
-
   async function change(action) {
     $("users-error").textContent = "";
     try {
@@ -50,18 +45,17 @@
     await load();
   }
 
-  function groupCheckbox(u, isMe, key) {
+  function adminCheckbox(u, isMe) {
     const box = el("input");
     box.type = "checkbox";
-    box.checked = u.membership[key];
-    box.setAttribute("aria-label", `${u.username}: ${key}`);
-    if (isMe && key === "admin") {
+    box.checked = u.admin;
+    box.setAttribute("aria-label", `${u.username}: admin`);
+    if (isMe) {
       box.disabled = true;
       box.title = "You can't remove your own admin access";
     }
     box.addEventListener("change", () => {
-      const membership = { ...u.membership, [key]: box.checked };
-      change(() => api("PATCH", userPath(u.username), { membership }));
+      change(() => api("PATCH", userPath(u.username), { admin: box.checked }));
     });
     const cell = el("td");
     cell.append(box);
@@ -72,7 +66,7 @@
     const row = el("tr", "users-password-row");
     row.hidden = true;
     const cell = el("td");
-    cell.colSpan = 5;
+    cell.colSpan = 3;
     const form = el("form", "users-form");
     form.autocomplete = "off";
 
@@ -90,11 +84,8 @@
     save.type = "submit";
     form.append(password, confirm, save);
 
-    const notes = [];
-    if (u.can_log_in_to_shell || u.sudo) notes.push("This also changes the password for SSH and sudo.");
-    if (isMe) notes.push("Your browser will ask you to log in again.");
     cell.append(form);
-    if (notes.length) cell.append(el("div", "sub", notes.join(" ")));
+    if (isMe) cell.append(el("div", "sub", "Your browser will ask you to log in again."));
     row.append(cell);
 
     form.addEventListener("submit", (e) => {
@@ -118,9 +109,7 @@
     const name = el("td", "mono", u.username);
     if (isMe) name.append(el("span", "sub", " (you)"));
     row.append(name);
-    row.append(groupCheckbox(u, isMe, "readonly"));
-    row.append(groupCheckbox(u, isMe, "admin"));
-    row.append(el("td", "", hostAccess(u)));
+    row.append(adminCheckbox(u, isMe));
 
     const pwRow = passwordRow(u, isMe);
     const actions = el("div", "users-actions");
@@ -134,8 +123,7 @@
       del.title = "You can't delete the account you're logged in as";
     } else {
       del.addEventListener("click", () => {
-        const warning = u.sudo ? `\n\nThis account has SSH and sudo access to the Pi. Make sure another account does too.` : "";
-        if (!window.confirm(`Delete user "${u.username}"? Their home folder will be kept.${warning}`)) return;
+        if (!window.confirm(`Delete user "${u.username}"? Their home folder will be kept.`)) return;
         change(() => api("DELETE", userPath(u.username)));
       });
     }
@@ -170,7 +158,7 @@
       await api("POST", "/api/users", {
         username: $("add-username").value.trim(),
         password,
-        membership: { readonly: $("add-readonly").checked, admin: $("add-admin").checked },
+        admin: $("add-admin").checked,
       });
       $("user-add").reset();
       await load();

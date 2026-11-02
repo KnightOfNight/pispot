@@ -100,13 +100,9 @@ func handleUserOp(req socket.Request, accounts *users.Manager) socket.Response {
 		}
 		return socket.Response{Ok: true, Users: list}
 	case socket.OpUserCreate:
-		var ms users.Membership
-		if req.Membership != nil {
-			ms = *req.Membership
-		}
-		err = accounts.Create(req.Actor, req.Username, req.Password, ms)
+		err = accounts.Create(req.Actor, req.Username, req.Password, req.Admin != nil && *req.Admin)
 	case socket.OpUserUpdate:
-		err = accounts.Update(req.Actor, req.Username, req.Membership, req.Password)
+		err = accounts.Update(req.Actor, req.Username, req.Admin, req.Password)
 	case socket.OpUserDelete:
 		err = accounts.Delete(req.Actor, req.Username)
 	}

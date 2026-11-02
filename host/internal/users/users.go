@@ -1,8 +1,12 @@
-// Package users manages the Unix accounts that can log in to the dashboard.
+// Package users manages dashboard accounts, which are Unix accounts.
 //
-// Only human accounts (UID 1000 to 59999) can be changed, and the only groups
-// it changes are the two pispot role groups. Passwords are passed to chpasswd
-// on stdin, never as arguments, and never logged.
+// An account is managed only if it's a human account (UID 1000 to 59999) and
+// a member of the basic access group. Every other account can't be listed or
+// changed here, including admins who aren't in the basic group, so they're
+// managed over SSH. Admin is an extra group on top of basic access.
+//
+// Passwords are passed to chpasswd on stdin, never as arguments, and never
+// logged.
 package users
 
 import (
@@ -27,7 +31,6 @@ const (
 	minPasswordLen = 8
 	maxPasswordLen = 256
 
-	sudoGroup = "sudo"
 	// newUserShell keeps accounts created here dashboard-only: they can't
 	// open an SSH session.
 	newUserShell = "/usr/sbin/nologin"
@@ -44,25 +47,15 @@ var (
 	ErrRemoveSelfAdmin = errors.New("you can't remove your own admin access")
 	ErrInvalidUsername = errors.New("usernames must start with a lowercase letter or underscore, then use lowercase letters, digits, - or _, up to 32 characters")
 	ErrInvalidPassword = fmt.Errorf("passwords must be %d to %d characters with no line breaks", minPasswordLen, maxPasswordLen)
-	ErrNotManaged      = errors.New("that isn't a user account this page can change")
+	ErrNotManaged      = errors.New("that account isn't managed by this page")
 	ErrNothingToChange = errors.New("nothing to change")
 )
 
-// Membership is an account's dashboard group membership.
-type Membership struct {
-	Readonly bool `json:"readonly"`
-	Admin    bool `json:"admin"`
-}
-
-// Account is one human account on the host.
+// Account is one managed account.
 type Account struct {
-	Username   string     `json:"username"`
-	UID        int        `json:"uid"`
-	Membership Membership `json:"membership"`
-	// CanLogInToShell is false for nologin accounts.
-	CanLogInToShell bool `json:"can_log_in_to_shell"`
-	// Sudo is shown so an admin can see when a change affects host access.
-	Sudo bool `json:"sudo"`
+	Username string `json:"username"`
+	UID      int    `json:"uid"`
+	Admin    bool   `json:"admin"`
 }
 
 type runFunc func(stdin string, name string, args ...string) (string, error)
@@ -145,11 +138,7 @@ func (m *Manager) groupMembers() (map[string]map[string]bool, error) {
 	return out, nil
 }
 
-func isShell(shell string) bool {
-	return shell != "" && !strings.HasSuffix(shell, "/nologin") && !strings.HasSuffix(shell, "/false")
-}
-
-// List returns the human accounts on the host, in /etc/passwd order.
+// List returns the managed accounts, in /etc/passwd order.
 func (m *Manager) List() ([]Account, error) {
 	lines, err := readLines(m.passwdPath)
 	if err != nil {
@@ -166,18 +155,13 @@ func (m *Manager) List() ([]Account, error) {
 			continue
 		}
 		uid, err := strconv.Atoi(f[2])
-		if err != nil || uid < minUID || uid > maxUID {
+		if err != nil || uid < minUID || uid > maxUID || !members[m.groups.ReadonlyGroup][f[0]] {
 			continue
 		}
 		accounts = append(accounts, Account{
 			Username: f[0],
 			UID:      uid,
-			Membership: Membership{
-				Readonly: members[m.groups.ReadonlyGroup][f[0]],
-				Admin:    members[m.groups.AdminGroup][f[0]],
-			},
-			CanLogInToShell: isShell(f[6]),
-			Sudo:            members[sudoGroup][f[0]],
+			Admin:    members[m.groups.AdminGroup][f[0]],
 		})
 	}
 	return accounts, nil
@@ -227,8 +211,8 @@ func (m *Manager) setPassword(username, password string) error {
 	return nil
 }
 
-// Create adds a dashboard-only account.
-func (m *Manager) Create(actor, username, password string, ms Membership) error {
+// Create adds a dashboard-only account with basic access, plus admin if asked.
+func (m *Manager) Create(actor, username, password string, admin bool) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if err := m.requireAdmin(actor); err != nil {
@@ -240,18 +224,11 @@ func (m *Manager) Create(actor, username, password string, ms Membership) error 
 	if err := validatePassword(password); err != nil {
 		return err
 	}
-	args := []string{"-m", "-s", newUserShell}
-	var joined []string
-	if ms.Readonly {
-		joined = append(joined, m.groups.ReadonlyGroup)
+	joined := m.groups.ReadonlyGroup
+	if admin {
+		joined += "," + m.groups.AdminGroup
 	}
-	if ms.Admin {
-		joined = append(joined, m.groups.AdminGroup)
-	}
-	if len(joined) > 0 {
-		args = append(args, "-G", strings.Join(joined, ","))
-	}
-	args = append(args, username)
+	args := []string{"-m", "-s", newUserShell, "-G", joined, username}
 	if out, err := m.run("", "useradd", args...); err != nil {
 		return commandError("couldn't create the account", out, err)
 	}
@@ -266,15 +243,15 @@ func (m *Manager) Create(actor, username, password string, ms Membership) error 
 	return nil
 }
 
-// Update changes group membership, the password, or both. A nil membership
-// or an empty password leaves that setting alone.
-func (m *Manager) Update(actor, username string, ms *Membership, password string) error {
+// Update changes admin access, the password, or both. A nil admin or an empty
+// password leaves that setting alone.
+func (m *Manager) Update(actor, username string, admin *bool, password string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if err := m.requireAdmin(actor); err != nil {
 		return err
 	}
-	if ms == nil && password == "" {
+	if admin == nil && password == "" {
 		return ErrNothingToChange
 	}
 	if password != "" {
@@ -289,7 +266,7 @@ func (m *Manager) Update(actor, username string, ms *Membership, password string
 	if !found {
 		return ErrNotManaged
 	}
-	if ms != nil && username == actor && !ms.Admin {
+	if admin != nil && !*admin && username == actor {
 		return ErrRemoveSelfAdmin
 	}
 	if password != "" {
@@ -297,25 +274,15 @@ func (m *Manager) Update(actor, username string, ms *Membership, password string
 			return err
 		}
 	}
-	if ms == nil {
-		return nil
-	}
-	if err := m.setGroup(username, m.groups.AdminGroup, account.Membership.Admin, ms.Admin); err != nil {
-		return err
-	}
-	return m.setGroup(username, m.groups.ReadonlyGroup, account.Membership.Readonly, ms.Readonly)
-}
-
-func (m *Manager) setGroup(username, group string, current, wanted bool) error {
-	if current == wanted {
+	if admin == nil || *admin == account.Admin {
 		return nil
 	}
 	flag := "-d"
-	if wanted {
+	if *admin {
 		flag = "-a"
 	}
-	if out, err := m.run("", "gpasswd", flag, username, group); err != nil {
-		return commandError("couldn't change "+group, out, err)
+	if out, err := m.run("", "gpasswd", flag, username, m.groups.AdminGroup); err != nil {
+		return commandError("couldn't change admin access", out, err)
 	}
 	return nil
 }

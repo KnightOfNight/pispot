@@ -122,9 +122,10 @@
     <section>
       <h2>Users</h2>
       <div class="error" id="users-error"></div>
+      <div class="summary">Shows accounts in the <span class="mono">pispot-ro</span> group. Other accounts are managed over SSH.</div>
       <table class="users-table">
         <thead>
-          <tr><th>User</th><th>Read-only</th><th>Admin</th><th>Host access</th><th></th></tr>
+          <tr><th>User</th><th>Admin</th><th></th></tr>
         </thead>
         <tbody id="users-rows"></tbody>
       </table>
@@ -136,11 +137,10 @@
         <input class="wifi-input" id="add-username" placeholder="Username" autocomplete="off" autocapitalize="none" spellcheck="false" required>
         <input class="wifi-input" id="add-password" type="password" placeholder="Password" autocomplete="new-password" required>
         <input class="wifi-input" id="add-confirm" type="password" placeholder="Confirm password" autocomplete="new-password" required>
-        <label><input type="checkbox" id="add-readonly" checked> Read-only</label>
         <label><input type="checkbox" id="add-admin"> Admin</label>
         <button type="submit" class="ctrl-btn">Add user</button>
       </form>
-      <div class="sub">New users can log in to this dashboard only, not SSH.</div>
+      <div class="sub">New users get basic access and can log in to this dashboard only, not SSH.</div>
       <div class="error" id="user-add-error"></div>
     </section>
   </main>

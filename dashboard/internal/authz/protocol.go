@@ -22,14 +22,8 @@ type authRequest struct {
 	// Actor is the logged-in user making a user_* change. Username and
 	// Password are the account being changed.
 	Actor string `json:"actor,omitempty"`
-	// Membership is the requested groups. Nil leaves them unchanged.
-	Membership *UserMembership `json:"membership,omitempty"`
-}
-
-// UserMembership is an account's dashboard group membership.
-type UserMembership struct {
-	Readonly bool `json:"readonly"`
-	Admin    bool `json:"admin"`
+	// Admin is the requested admin access. Nil leaves it unchanged.
+	Admin *bool `json:"admin,omitempty"`
 }
 
 // authResponse is returned by pispot-authd.

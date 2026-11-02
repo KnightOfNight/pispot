@@ -113,13 +113,13 @@ func CallUserList(ctx context.Context, socketPath string) (json.RawMessage, erro
 
 // CallUserChange sends one user_create, user_update or user_delete op on
 // behalf of actor. The helper enforces the rules about what actor may do.
-func CallUserChange(ctx context.Context, socketPath, op, actor, username, password string, ms *UserMembership) error {
+func CallUserChange(ctx context.Context, socketPath, op, actor, username, password string, admin *bool) error {
 	resp, err := callSocket(ctx, socketPath, authRequest{
-		Op:         op,
-		Actor:      actor,
-		Username:   username,
-		Password:   password,
-		Membership: ms,
+		Op:       op,
+		Actor:    actor,
+		Username: username,
+		Password: password,
+		Admin:    admin,
 	})
 	if err != nil {
 		return err
