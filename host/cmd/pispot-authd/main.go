@@ -133,7 +133,7 @@ func handleWifiList() socket.Response {
 	}
 	var sn []socket.Network
 	for _, n := range networks {
-		sn = append(sn, socket.Network{SSID: n.SSID, PSK: n.PSK})
+		sn = append(sn, socket.Network{SSID: n.SSID})
 	}
 	log.Printf("wifi op: list returned %d network(s)", len(sn))
 	return socket.Response{Ok: true, Networks: sn}

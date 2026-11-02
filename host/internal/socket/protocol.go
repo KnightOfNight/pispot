@@ -55,7 +55,7 @@ type Response struct {
 }
 
 // Network is one wpa_supplicant network entry returned in wifi_list responses.
+// It deliberately has no password field: passwords go in, but never come back.
 type Network struct {
 	SSID string `json:"ssid"`
-	PSK  string `json:"psk"`
 }

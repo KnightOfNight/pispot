@@ -191,7 +191,6 @@ type socketResponse struct {
 
 type socketNetwork struct {
 	SSID string `json:"ssid"`
-	PSK  string `json:"psk"`
 }
 
 func wifiList() error {
@@ -222,9 +221,7 @@ func wifiList() error {
 	fmt.Printf("%-3s  %-40s  %s\n", "#", "SSID", "Password")
 	fmt.Printf("%-3s  %-40s  %s\n", "---", strings.Repeat("-", 40), "--------")
 	for i, n := range resp.Networks {
-		psk := "••••••••"
-		_ = n.PSK // PSK received but always masked in output
-		fmt.Printf("%-3d  %-40s  %s\n", i+1, n.SSID, psk)
+		fmt.Printf("%-3d  %-40s  %s\n", i+1, n.SSID, "••••••••")
 	}
 	return nil
 }

@@ -41,10 +41,10 @@ func callHelper(ctx context.Context, socketPath, username, password string) (aut
 	return resp, nil
 }
 
-// WifiNetwork is one network entry returned by CallWifiList.
+// WifiNetwork is one network entry returned by CallWifiList. It's sent to the
+// browser as is, so it must never carry a password.
 type WifiNetwork struct {
 	SSID string `json:"ssid"`
-	PSK  string `json:"psk"`
 }
 
 // callSocket is the shared low-level transport for all socket ops.
@@ -142,7 +142,7 @@ func CallWifiList(ctx context.Context, socketPath string) ([]WifiNetwork, error)
 	}
 	out := make([]WifiNetwork, len(resp.Networks))
 	for i, n := range resp.Networks {
-		out[i] = WifiNetwork{SSID: n.SSID, PSK: n.PSK}
+		out[i] = WifiNetwork{SSID: n.SSID}
 	}
 	log.Printf("authz: wifi_list returned %d network(s)", len(out))
 	return out, nil

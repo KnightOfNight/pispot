@@ -41,8 +41,8 @@ type authResponse struct {
 	Users json.RawMessage `json:"users,omitempty"`
 }
 
-// wifiNetwork is one network entry in a wifi_list response.
+// wifiNetwork is one network entry in a wifi_list response. It has no password
+// field, so a password sent by an older helper is dropped here.
 type wifiNetwork struct {
 	SSID string `json:"ssid"`
-	PSK  string `json:"psk"`
 }
