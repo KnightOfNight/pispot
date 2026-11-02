@@ -67,6 +67,7 @@
 
           interface eth0
           fallback static_eth0
+          fallback_time 60
           reboot 0
           metric 5000
           ipv4only
