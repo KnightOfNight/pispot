@@ -17,12 +17,16 @@ ctg:x:1000:1000::/home/ctg:/bin/bash
 alice:x:1001:1001::/home/alice:/usr/sbin/nologin
 bob:x:1002:1002::/home/bob:/usr/sbin/nologin
 carol:x:1003:1003::/home/carol:/bin/bash
+dave:x:1004:1004::/home/dave:/bin/bash
+erin:x:1005:1005::/home/erin:/bin/bash
+frank:x:1006:992::/home/frank:/bin/bash
 nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin
 `
 	groupFile = `root:x:0:
 sudo:x:27:ctg
-pispot-ro:x:990:alice,bob,daemon,nobody
-pispot-admin:x:991:ctg,bob
+pispot-ro:x:990:ctg,alice,bob,erin,frank,daemon,nobody
+pispot-admin:x:991:ctg,bob,dave
+pispot-owner:x:992:ctg,erin
 `
 	goodPassword = "correct horse battery"
 )
@@ -51,7 +55,7 @@ func newFixture(t *testing.T) *fixture {
 	}
 	f := &fixture{fail: map[string]bool{}}
 	f.m = &Manager{
-		groups:     groups.Config{ReadonlyGroup: "pispot-ro", AdminGroup: "pispot-admin"},
+		groups:     groups.Config{ReadonlyGroup: "pispot-ro", AdminGroup: "pispot-admin", OwnerGroup: "pispot-owner"},
 		passwdPath: passwd,
 		groupPath:  group,
 		run: func(stdin, name string, args ...string) (string, error) {
@@ -75,8 +79,10 @@ func (f *fixture) commands() string {
 
 func boolPtr(b bool) *bool { return &b }
 
-// ctg is an admin outside the basic group, carol is in neither group, and
-// daemon and nobody are in the basic group but aren't human accounts.
+// ctg is an owner in all three groups, erin is in the owner group without
+// admin, and frank has it as a primary group. carol is in no group, dave is an
+// admin outside the basic group, and daemon and nobody are in the basic group
+// but aren't human accounts.
 func TestListShowsOnlyManagedAccounts(t *testing.T) {
 	got, err := newFixture(t).m.List()
 	if err != nil {
@@ -113,7 +119,7 @@ func TestDeleteOther(t *testing.T) {
 }
 
 func TestUnmanagedAccountsAreOffLimits(t *testing.T) {
-	for _, name := range []string{"root", "daemon", "nobody", "missing", "ctg", "carol"} {
+	for _, name := range []string{"root", "daemon", "nobody", "missing", "ctg", "carol", "dave", "erin", "frank"} {
 		f := newFixture(t)
 		// bob is the actor, so "ctg" isn't refused for being the actor.
 		if err := f.m.Delete("bob", name); !errors.Is(err, ErrNotManaged) {
@@ -128,7 +134,7 @@ func TestUnmanagedAccountsAreOffLimits(t *testing.T) {
 	}
 }
 
-func TestAdminOutsideBasicGroupCanManageOthers(t *testing.T) {
+func TestOwnersCanManageOthers(t *testing.T) {
 	f := newFixture(t)
 	if err := f.m.Update("ctg", "alice", boolPtr(true), ""); err != nil {
 		t.Fatal(err)
@@ -138,8 +144,30 @@ func TestAdminOutsideBasicGroupCanManageOthers(t *testing.T) {
 	}
 }
 
+func TestMissingOwnerGroupStopsManagement(t *testing.T) {
+	f := newFixture(t)
+	withoutOwner := strings.Replace(groupFile, "pispot-owner:x:992:ctg,erin\n", "", 1)
+	if err := os.WriteFile(f.m.groupPath, []byte(withoutOwner), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.m.List(); err == nil {
+		t.Error("List should fail")
+	}
+	if err := f.m.Delete("bob", "ctg"); err == nil {
+		t.Error("Delete should fail")
+	}
+	if err := f.m.Update("bob", "ctg", nil, goodPassword); err == nil {
+		t.Error("Update should fail")
+	}
+	if len(f.calls) != 0 {
+		t.Errorf("ran commands: %s", f.commands())
+	}
+}
+
+// dave is in the admin group without the basic group, so doesn't count as an
+// admin, and erin is in the owner group without the admin group.
 func TestChangesRequireCurrentAdmin(t *testing.T) {
-	for _, actor := range []string{"", "alice", "missing"} {
+	for _, actor := range []string{"", "alice", "missing", "dave", "erin"} {
 		f := newFixture(t)
 		errs := []error{
 			f.m.Delete(actor, "bob"),

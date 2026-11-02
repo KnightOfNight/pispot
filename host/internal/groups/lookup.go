@@ -1,5 +1,9 @@
-// Package groups resolves a username's Unix group membership to a pispot
-// role using the host's NSS via the Go stdlib os/user package.
+// Package groups turns a username's Unix group membership into a pispot role
+// using the host's NSS via the Go stdlib os/user package.
+//
+// The groups form a ladder: readonly, then admin, then owner. Each one requires
+// all those below it, so a group doesn't count unless the account is also in
+// every lower one.
 package groups
 
 import (
@@ -7,15 +11,43 @@ import (
 	"os/user"
 )
 
-// Config holds the configured Unix group names for each role.
+// Config holds the configured Unix group names for each level.
 type Config struct {
 	ReadonlyGroup string
 	AdminGroup    string
+	OwnerGroup    string
+}
+
+// Level is a place on the group ladder.
+type Level int
+
+// The levels, lowest first.
+const (
+	LevelNone Level = iota
+	LevelReadonly
+	LevelAdmin
+	LevelOwner
+)
+
+// Level returns how far up the ladder an account gets without a gap. The
+// inGroup function reports whether the account is in the named group.
+func (c Config) Level(inGroup func(group string) bool) Level {
+	switch {
+	case !inGroup(c.ReadonlyGroup):
+		return LevelNone
+	case !inGroup(c.AdminGroup):
+		return LevelReadonly
+	case !inGroup(c.OwnerGroup):
+		return LevelAdmin
+	default:
+		return LevelOwner
+	}
 }
 
 // Resolve returns the pispot role ("readonly" or "admin") for the given
-// username based on their Unix group membership. If the user is in both
-// groups, "admin" wins. If neither, ("", ErrNotAuthorized) is returned.
+// username. Owners get the admin role: being an owner only stops the account
+// being managed from the dashboard. An account with no level gets
+// ("", ErrNotAuthorized).
 func Resolve(username string, cfg Config) (string, error) {
 	u, err := user.Lookup(username)
 	if err != nil {
@@ -27,30 +59,25 @@ func Resolve(username string, cfg Config) (string, error) {
 		return "", fmt.Errorf("group ids for %q: %w", username, err)
 	}
 
-	var inReadonly, inAdmin bool
+	names := make(map[string]bool, len(gids))
 	for _, gid := range gids {
 		g, err := user.LookupGroupId(gid)
 		if err != nil {
 			continue
 		}
-		switch g.Name {
-		case cfg.AdminGroup:
-			inAdmin = true
-		case cfg.ReadonlyGroup:
-			inReadonly = true
-		}
+		names[g.Name] = true
 	}
 
-	switch {
-	case inAdmin:
+	switch level := cfg.Level(func(group string) bool { return names[group] }); {
+	case level >= LevelAdmin:
 		return "admin", nil
-	case inReadonly:
+	case level == LevelReadonly:
 		return "readonly", nil
 	default:
 		return "", ErrNotAuthorized
 	}
 }
 
-// ErrNotAuthorized is returned when the authenticated user is not a
-// member of any configured pispot group.
-var ErrNotAuthorized = fmt.Errorf("not a member of any pispot group")
+// ErrNotAuthorized is returned when the authenticated user isn't in the
+// basic access group, which every level requires.
+var ErrNotAuthorized = fmt.Errorf("not in the basic access group")

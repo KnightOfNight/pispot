@@ -35,11 +35,15 @@
       loop:
         - pispot-ro
         - pispot-admin
+        - pispot-owner
 
-    - name: Add ansible_user to pispot-admin group
+    - name: Make ansible_user a pispot owner, which needs all three groups
       user:
         name: "{{ ansible_user }}"
-        groups: pispot-admin
+        groups:
+          - pispot-ro
+          - pispot-admin
+          - pispot-owner
         append: yes
 
     - name: Disable NetworkManager control of interfaces

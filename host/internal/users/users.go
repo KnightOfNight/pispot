@@ -1,9 +1,13 @@
 // Package users manages dashboard accounts, which are Unix accounts.
 //
-// An account is managed only if it's a human account (UID 1000 to 59999) and
-// a member of the basic access group. Every other account can't be listed or
-// changed here, including admins who aren't in the basic group, so they're
-// managed over SSH. Admin is an extra group on top of basic access.
+// An account is managed only if it's a human account (UID 1000 to 59999), in
+// the basic access group, and not in the owner group. Every other account can't
+// be listed or changed here, so it's managed over SSH.
+//
+// Every change this package makes keeps to the group ladder in package groups:
+// accounts get basic access, admin can be added or removed on top of it, and
+// the owner group is never touched. Membership of the owner group alone makes
+// an account unmanaged, even if it's missing a group below it.
 //
 // Passwords are passed to chpasswd on stdin, never as arguments, and never
 // logged.
@@ -115,13 +119,15 @@ func readLines(path string) ([]string, error) {
 	return lines, s.Err()
 }
 
-// groupMembers maps each group name to its listed members.
+// groupMembers maps each group name to its members, including accounts that
+// have it as their primary group, which /etc/group doesn't list.
 func (m *Manager) groupMembers() (map[string]map[string]bool, error) {
 	lines, err := readLines(m.groupPath)
 	if err != nil {
 		return nil, err
 	}
 	out := make(map[string]map[string]bool)
+	nameByGID := make(map[string]string)
 	for _, line := range lines {
 		f := strings.Split(line, ":")
 		if len(f) != 4 {
@@ -134,6 +140,20 @@ func (m *Manager) groupMembers() (map[string]map[string]bool, error) {
 			}
 		}
 		out[f[0]] = members
+		nameByGID[f[2]] = f[0]
+	}
+	passwd, err := readLines(m.passwdPath)
+	if err != nil {
+		return nil, err
+	}
+	for _, line := range passwd {
+		f := strings.Split(line, ":")
+		if len(f) != 7 {
+			continue
+		}
+		if group, ok := nameByGID[f[3]]; ok {
+			out[group][f[0]] = true
+		}
 	}
 	return out, nil
 }
@@ -148,6 +168,10 @@ func (m *Manager) List() ([]Account, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Without this group, owners would look like ordinary managed accounts.
+	if _, ok := members[m.groups.OwnerGroup]; !ok {
+		return nil, fmt.Errorf("the %s group doesn't exist, so accounts can't be managed safely", m.groups.OwnerGroup)
+	}
 	accounts := []Account{}
 	for _, line := range lines {
 		f := strings.Split(line, ":")
@@ -155,7 +179,10 @@ func (m *Manager) List() ([]Account, error) {
 			continue
 		}
 		uid, err := strconv.Atoi(f[2])
-		if err != nil || uid < minUID || uid > maxUID || !members[m.groups.ReadonlyGroup][f[0]] {
+		if err != nil || uid < minUID || uid > maxUID {
+			continue
+		}
+		if !members[m.groups.ReadonlyGroup][f[0]] || members[m.groups.OwnerGroup][f[0]] {
 			continue
 		}
 		accounts = append(accounts, Account{
@@ -190,7 +217,8 @@ func (m *Manager) requireAdmin(actor string) error {
 	if err != nil {
 		return err
 	}
-	if !members[m.groups.AdminGroup][actor] {
+	level := m.groups.Level(func(group string) bool { return members[group][actor] })
+	if level < groups.LevelAdmin {
 		return ErrNotAdmin
 	}
 	return nil

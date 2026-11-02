@@ -195,7 +195,7 @@ make deploy-all
 This will:
 1. Build host binaries (`pispot-authd`, `pispotctl`)
 2. Run Ansible `pi-setup.yml` — creates pispot Unix groups, adds your user
-   to `pispot-admin`, configures dhcpcd, hostapd, dnsmasq, nftables, avahi,
+   to all three, configures dhcpcd, hostapd, dnsmasq, nftables, avahi,
    installs pispot-authd and pispotctl, deploys TLS certs
 3. Build the Docker image and ship it to the Pi
 4. Start the dashboard container
@@ -247,23 +247,41 @@ reboot, so start a new one for any later work.
 
 ## User accounts and access
 
-Two Unix groups control access:
+Three Unix groups control access. They're levels, lowest first:
 
-| Group | Role | Permissions |
+| Group | Level | Permissions |
 |---|---|---|
 | `pispot-ro` | read-only | view dashboard, no controls |
-| `pispot-admin` | admin | full dashboard, WAN up/down, WiFi config |
+| `pispot-admin` | admin | full dashboard, WAN up/down, WiFi config, Logs, Users |
+| `pispot-owner` | owner | same as admin, but can't be changed or deleted from the dashboard |
 
-Both groups are created automatically by `make setup`. The user you entered
-in `make init` is automatically added to `pispot-admin` on first deploy.
+An account can't be in a group without being in every lower one, so it's in
+one, two or all three of them. A group doesn't count if a lower one is missing:
+an account in `pispot-admin` but not `pispot-ro` can't log in, and one in
+`pispot-ro` and `pispot-owner` but not `pispot-admin` is only read-only. It
+stays off the Users tab either way, since being in `pispot-owner` is enough.
+
+All three groups are created automatically by `make setup`. The user you
+entered in `make init` is automatically added to all three on first deploy.
 
 Admins can manage users on the dashboard's Users tab, or on the Pi:
 
 ```sh
 sudo useradd -m alice
 sudo passwd alice
-sudo usermod -aG pispot-ro alice      # read-only
-sudo usermod -aG pispot-admin alice   # or admin
+sudo usermod -aG pispot-ro alice                           # read-only
+sudo usermod -aG pispot-ro,pispot-admin alice              # or admin
+sudo usermod -aG pispot-ro,pispot-admin,pispot-owner alice # or owner
+```
+
+To upgrade an existing Pi, create the new group and add your account to all
+three **before** installing the new `pispot-authd`. If you install it first, the
+Users tab won't work and any account missing `pispot-ro` can't log in to the
+dashboard:
+
+```sh
+sudo groupadd pispot-owner
+sudo usermod -aG pispot-ro,pispot-admin,pispot-owner "$USER"
 ```
 
 Credentials are validated via PAM on each login (cached for 5 minutes).
@@ -282,12 +300,12 @@ The Logs tab is read-only and shows the output of a fixed list of commands in
 keys, and its output also passes through a redaction filter. When adding a
 source, keep secrets out of it: the filter is only a second layer.
 
-The Users tab manages only human accounts (UIDs 1000 to 59999) in `pispot-ro`,
-the basic access group. New accounts always join it, and `pispot-admin` is an
-optional extra on top. An admin who isn't in `pispot-ro` doesn't appear on the
-page and can't be changed from it, which is how the account from `make init`
-stays out of reach. Manage those accounts over SSH, and don't add them to
-`pispot-ro` unless you want the page to be able to change or delete them.
+The Users tab manages only human accounts (UIDs 1000 to 59999) in `pispot-ro`
+and not in `pispot-owner`. New accounts always join `pispot-ro`, and
+`pispot-admin` is an optional extra on top. The page can't add anyone to
+`pispot-owner`. Owners don't appear on the page and can't be changed from it,
+which is how the account from `make init` stays out of reach, so manage them
+over SSH. They can still use the page to manage everyone else.
 
 You can't delete your own account or remove your own admin access. New
 accounts get no shell, so they can log in to the dashboard but not SSH.

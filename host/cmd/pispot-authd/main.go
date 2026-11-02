@@ -43,8 +43,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("load config: %v", err)
 	}
-	log.Printf("pispot-authd starting (readonly=%s admin=%s socket=%s)",
-		cfg.ReadonlyGroup, cfg.AdminGroup, *socketPath)
+	log.Printf("pispot-authd starting (readonly=%s admin=%s owner=%s socket=%s)",
+		cfg.ReadonlyGroup, cfg.AdminGroup, cfg.OwnerGroup, *socketPath)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -183,8 +183,8 @@ func handleAuth(ctx context.Context, req socket.Request, cfg groups.Config) sock
 	role, err := groups.Resolve(req.Username, cfg)
 	if err != nil {
 		if errors.Is(err, groups.ErrNotAuthorized) {
-			log.Printf("auth: denied user=%q not in any pispot group (readonly=%s admin=%s)",
-				req.Username, cfg.ReadonlyGroup, cfg.AdminGroup)
+			log.Printf("auth: denied user=%q not in the basic access group %s, which every level requires",
+				req.Username, cfg.ReadonlyGroup)
 			return socket.Response{Error: "not authorized"}
 		}
 		log.Printf("auth: group lookup failed for user=%q: %v", req.Username, err)
@@ -206,6 +206,7 @@ func loadConfig(path string) (groups.Config, error) {
 	cfg := groups.Config{
 		ReadonlyGroup: "pispot-ro",
 		AdminGroup:    "pispot-admin",
+		OwnerGroup:    "pispot-owner",
 	}
 
 	sc := bufio.NewScanner(f)
@@ -225,6 +226,8 @@ func loadConfig(path string) (groups.Config, error) {
 			cfg.ReadonlyGroup = val
 		case "admin":
 			cfg.AdminGroup = val
+		case "owner":
+			cfg.OwnerGroup = val
 		}
 	}
 	return cfg, sc.Err()
