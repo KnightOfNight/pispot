@@ -253,7 +253,7 @@ Three Unix groups control access. They're levels, lowest first:
 |---|---|---|
 | `pispot-ro` | read-only | view dashboard, no controls |
 | `pispot-admin` | admin | full dashboard, WAN up/down, WiFi config, Logs, Users |
-| `pispot-owner` | owner | same as admin, can't be changed or deleted from the dashboard, and gets `sudo` |
+| `pispot-owner` | owner | same as admin, can't be changed from the dashboard, and gets SSH and `sudo` |
 
 An account can't be in a group without being in every lower one, so it's in
 one, two or all three of them. A group doesn't count if a lower one is missing:
@@ -268,12 +268,18 @@ does the jobs the page offers. It's also why the Admin checkbox on the Users tab
 can't grant root. An account can also have `sudo` from elsewhere, such as the
 `sudo` group, so one that's in both has a harmless duplicate.
 
-The health summary on the Logs tab warns if an owner can't use `sudo`, if anyone
-else in these groups can, if an account breaks the level rule above, or if
-`/etc/sudoers.d/pispot` is missing. It asks `sudo` itself rather than reading
-the config, so it holds however access was granted.
+Only owners get SSH among accounts in these groups, from
+`/etc/ssh/sshd_config.d/pispot.conf`. Everyone else in them is refused, even with
+the right password. New accounts from the Users tab also have no login shell,
+but that alone wouldn't be enough, because a tunnel (`ssh -N -L`) doesn't need
+one. Accounts outside these groups aren't affected.
 
-All three groups and the sudoers file are created automatically by `make setup`.
+The health summary on the Logs tab warns if an owner can't use `sudo`, if anyone
+else in these groups can, if an account breaks the level rule above, or if either
+of those two files is missing. It asks `sudo` itself rather than reading the
+config, so it holds however access was granted.
+
+All three groups and both files are created automatically by `make setup`.
 The user you entered in `make init` is automatically added to all three on first
 deploy.
 
@@ -305,6 +311,16 @@ broken sudoers file can stop `sudo` working altogether:
 sudo visudo -cf /tmp/pispot.sudoers && \
   sudo install -o root -g root -m 0440 /tmp/pispot.sudoers /etc/sudoers.d/pispot
 rm /tmp/pispot.sudoers
+```
+
+Add the SSH rule the same way, from `host/files/pispot-sshd.conf`. Keep your SSH
+session open until a new login works, in case the rule locks you out:
+
+```sh
+sudo /usr/sbin/sshd -t -f /tmp/pispot-sshd.conf && \
+  sudo install -o root -g root -m 0644 /tmp/pispot-sshd.conf /etc/ssh/sshd_config.d/pispot.conf && \
+  sudo /usr/sbin/sshd -t && sudo systemctl reload ssh
+rm /tmp/pispot-sshd.conf
 ```
 
 Credentials are validated via PAM on each login (cached for 5 minutes).

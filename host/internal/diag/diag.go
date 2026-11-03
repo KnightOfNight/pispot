@@ -49,6 +49,7 @@ const (
 
 	fullchainPath = "/etc/pispot/certs/fullchain.pem"
 	sudoersPath   = "/etc/sudoers.d/pispot"
+	sshdPath      = "/etc/ssh/sshd_config.d/pispot.conf"
 	// fallbackAddr is eth0's static fallback from ansible/pi-setup.yml.
 	fallbackAddr = "192.168.50.1"
 )
@@ -420,13 +421,13 @@ func canSudo(ctx context.Context, username string) (bool, error) {
 	return false, err
 }
 
-func classifyAccounts(cfg groups.Config, members map[string]map[string]bool, sudoersExists bool, sudo func(string) (bool, error)) (string, string) {
+func classifyAccounts(cfg groups.Config, members map[string]map[string]bool, missingFiles []string, sudo func(string) (bool, error)) (string, string) {
 	var problems []string
 	if _, ok := members[cfg.OwnerGroup]; !ok {
 		problems = append(problems, "the "+cfg.OwnerGroup+" group doesn't exist")
 	}
-	if !sudoersExists {
-		problems = append(problems, sudoersPath+" is missing")
+	for _, path := range missingFiles {
+		problems = append(problems, path+" is missing")
 	}
 
 	seen := map[string]bool{}
@@ -471,14 +472,19 @@ func classifyAccounts(cfg groups.Config, members map[string]map[string]bool, sud
 }
 
 func checkAccounts(ctx context.Context, cfg groups.Config) Check {
-	c := Check{Name: "Account groups and sudo"}
+	c := Check{Name: "Account groups, sudo and SSH"}
 	members, err := users.GroupMembers("/etc/passwd", "/etc/group")
 	if err != nil {
 		c.Status, c.Detail = StatusWarn, "couldn't read the account files"
 		return c
 	}
-	_, statErr := os.Stat(sudoersPath)
-	c.Status, c.Detail = classifyAccounts(cfg, members, statErr == nil, func(name string) (bool, error) {
+	var missing []string
+	for _, path := range []string{sudoersPath, sshdPath} {
+		if _, err := os.Stat(path); err != nil {
+			missing = append(missing, path)
+		}
+	}
+	c.Status, c.Detail = classifyAccounts(cfg, members, missing, func(name string) (bool, error) {
 		return canSudo(ctx, name)
 	})
 	return c

@@ -21,22 +21,23 @@ func TestClassifyAccounts(t *testing.T) {
 	cases := []struct {
 		name    string
 		members map[string]map[string]bool
-		file    bool
+		missing []string
 		sudo    func(string) (bool, error)
 		want    string // text the warning must contain; empty means all is well
 	}{
-		{"all good", good, true, onlyOwners, ""},
-		{"sudoers file missing", good, false, onlyOwners, "/etc/sudoers.d/pispot is missing"},
-		{"owner without sudo", good, true, func(string) (bool, error) { return false, nil }, "ctg is in owner but can't use sudo"},
-		{"non-owner with sudo", good, true, func(name string) (bool, error) { return name != "alice", nil }, "bob can use sudo but isn't in owner"},
-		{"sudo check fails", good, true, func(string) (bool, error) { return false, errors.New("timeout") }, "couldn't check sudo for alice"},
-		{"owner group missing", map[string]map[string]bool{"ro": {"ctg": true}, "admin": {"ctg": true}}, true, onlyOwners, "the owner group doesn't exist"},
-		{"no owners", map[string]map[string]bool{"ro": {"alice": true}, "admin": {}, "owner": {}}, true, func(string) (bool, error) { return false, nil }, "nobody is in owner"},
-		{"owner missing lower groups", map[string]map[string]bool{"ro": {}, "admin": {}, "owner": {"ctg": true}}, true, onlyOwners, "ctg isn't in ro or admin"},
-		{"admin missing basic", map[string]map[string]bool{"ro": {"ctg": true}, "admin": {"ctg": true, "dave": true}, "owner": {"ctg": true}}, true, onlyOwners, "dave isn't in ro"},
+		{"all good", good, nil, onlyOwners, ""},
+		{"sudoers file missing", good, []string{sudoersPath}, onlyOwners, "/etc/sudoers.d/pispot is missing"},
+		{"SSH file missing", good, []string{sshdPath}, onlyOwners, "/etc/ssh/sshd_config.d/pispot.conf is missing"},
+		{"owner without sudo", good, nil, func(string) (bool, error) { return false, nil }, "ctg is in owner but can't use sudo"},
+		{"non-owner with sudo", good, nil, func(name string) (bool, error) { return name != "alice", nil }, "bob can use sudo but isn't in owner"},
+		{"sudo check fails", good, nil, func(string) (bool, error) { return false, errors.New("timeout") }, "couldn't check sudo for alice"},
+		{"owner group missing", map[string]map[string]bool{"ro": {"ctg": true}, "admin": {"ctg": true}}, nil, onlyOwners, "the owner group doesn't exist"},
+		{"no owners", map[string]map[string]bool{"ro": {"alice": true}, "admin": {}, "owner": {}}, nil, func(string) (bool, error) { return false, nil }, "nobody is in owner"},
+		{"owner missing lower groups", map[string]map[string]bool{"ro": {}, "admin": {}, "owner": {"ctg": true}}, nil, onlyOwners, "ctg isn't in ro or admin"},
+		{"admin missing basic", map[string]map[string]bool{"ro": {"ctg": true}, "admin": {"ctg": true, "dave": true}, "owner": {"ctg": true}}, nil, onlyOwners, "dave isn't in ro"},
 	}
 	for _, c := range cases {
-		status, detail := classifyAccounts(cfg, c.members, c.file, c.sudo)
+		status, detail := classifyAccounts(cfg, c.members, c.missing, c.sudo)
 		if c.want == "" {
 			if status != StatusOK || !strings.Contains(detail, "ctg") {
 				t.Errorf("%s: got %s, %q", c.name, status, detail)
