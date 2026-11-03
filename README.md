@@ -253,7 +253,7 @@ Three Unix groups control access. They're levels, lowest first:
 |---|---|---|
 | `pispot-ro` | read-only | view dashboard, no controls |
 | `pispot-admin` | admin | full dashboard, WAN up/down, WiFi config, Logs, Users |
-| `pispot-owner` | owner | same as admin, but can't be changed or deleted from the dashboard |
+| `pispot-owner` | owner | same as admin, can't be changed or deleted from the dashboard, and gets `sudo` |
 
 An account can't be in a group without being in every lower one, so it's in
 one, two or all three of them. A group doesn't count if a lower one is missing:
@@ -261,8 +261,20 @@ an account in `pispot-admin` but not `pispot-ro` can't log in, and one in
 `pispot-ro` and `pispot-owner` but not `pispot-admin` is only read-only. It
 stays off the Users tab either way, since being in `pispot-owner` is enough.
 
-All three groups are created automatically by `make setup`. The user you
-entered in `make init` is automatically added to all three on first deploy.
+Only owners get `sudo`, from `/etc/sudoers.d/pispot`. Admins don't need it,
+because dashboard actions go through `pispot-authd`, which runs as root and only
+does the jobs the page offers. It's also why the Admin checkbox on the Users tab
+can't grant root. An account can also have `sudo` from elsewhere, such as the
+`sudo` group, so one that's in both has a harmless duplicate.
+
+The health summary on the Logs tab warns if an owner can't use `sudo`, if anyone
+else in these groups can, if an account breaks the level rule above, or if
+`/etc/sudoers.d/pispot` is missing. It asks `sudo` itself rather than reading
+the config, so it holds however access was granted.
+
+All three groups and the sudoers file are created automatically by `make setup`.
+The user you entered in `make init` is automatically added to all three on first
+deploy.
 
 Admins can manage users on the dashboard's Users tab, or on the Pi:
 
@@ -282,6 +294,16 @@ dashboard:
 ```sh
 sudo groupadd pispot-owner
 sudo usermod -aG pispot-ro,pispot-admin,pispot-owner "$USER"
+```
+
+Then add the sudoers file by copying `host/files/pispot.sudoers` to the Pi as
+`/tmp/pispot.sudoers` and installing it. `visudo` checks it first, because a
+broken sudoers file can stop `sudo` working altogether:
+
+```sh
+sudo visudo -cf /tmp/pispot.sudoers && \
+  sudo install -o root -g root -m 0440 /tmp/pispot.sudoers /etc/sudoers.d/pispot
+rm /tmp/pispot.sudoers
 ```
 
 Credentials are validated via PAM on each login (cached for 5 minutes).

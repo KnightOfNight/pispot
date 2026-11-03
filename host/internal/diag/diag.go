@@ -14,17 +14,22 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/mcs-net/pispot/host/internal/groups"
+	"github.com/mcs-net/pispot/host/internal/users"
 )
 
 // Check statuses.
@@ -43,6 +48,7 @@ const (
 	maxConcurrent  = 6
 
 	fullchainPath = "/etc/pispot/certs/fullchain.pem"
+	sudoersPath   = "/etc/sudoers.d/pispot"
 	// fallbackAddr is eth0's static fallback from ansible/pi-setup.yml.
 	fallbackAddr = "192.168.50.1"
 )
@@ -202,7 +208,7 @@ func collectSection(ctx context.Context, src source) Section {
 }
 
 // Collect gathers the full report. It's safe to call concurrently.
-func Collect(ctx context.Context) Report {
+func Collect(ctx context.Context, cfg groups.Config) Report {
 	host, _ := os.Hostname()
 	sections := make([]Section, len(sources))
 	sem := make(chan struct{}, maxConcurrent)
@@ -220,17 +226,18 @@ func Collect(ctx context.Context) Report {
 	return Report{
 		GeneratedAt: time.Now().Format(time.RFC3339),
 		Hostname:    host,
-		Checks:      collectChecks(ctx),
+		Checks:      collectChecks(ctx, cfg),
 		Sections:    sections,
 	}
 }
 
-func collectChecks(ctx context.Context) []Check {
+func collectChecks(ctx context.Context, cfg groups.Config) []Check {
 	return []Check{
 		checkCert(ctx, time.Now()),
 		checkEth0(),
 		checkConflicts(ctx),
 		checkServices(ctx),
+		checkAccounts(ctx, cfg),
 		checkWAN(ctx),
 		checkContainer(ctx),
 		checkClock(ctx),
@@ -391,6 +398,89 @@ func checkForwarding() Check {
 		return c
 	}
 	c.Status, c.Detail = StatusOK, "on"
+	return c
+}
+
+// --- accounts ----------------------------------------------------------------
+
+// canSudo asks sudo itself, so the answer holds however access was granted.
+// It only sees whether the account can run an ordinary command, so a rule for
+// one specific command elsewhere won't count.
+func canSudo(ctx context.Context, username string) (bool, error) {
+	out, err := run(ctx, cmdTimeout, []string{"sudo", "-n", "-l", "-U", username, "/usr/bin/true"})
+	if err == nil {
+		return true, nil
+	}
+	// Exit 1 with no message means not allowed. A message means something
+	// else went wrong, such as an unknown user.
+	var exit *exec.ExitError
+	if errors.As(err, &exit) && exit.ExitCode() == 1 && out == "" {
+		return false, nil
+	}
+	return false, err
+}
+
+func classifyAccounts(cfg groups.Config, members map[string]map[string]bool, sudoersExists bool, sudo func(string) (bool, error)) (string, string) {
+	var problems []string
+	if _, ok := members[cfg.OwnerGroup]; !ok {
+		problems = append(problems, "the "+cfg.OwnerGroup+" group doesn't exist")
+	}
+	if !sudoersExists {
+		problems = append(problems, sudoersPath+" is missing")
+	}
+
+	seen := map[string]bool{}
+	for _, group := range []string{cfg.ReadonlyGroup, cfg.AdminGroup, cfg.OwnerGroup} {
+		for name := range members[group] {
+			seen[name] = true
+		}
+	}
+	names := make([]string, 0, len(seen))
+	for name := range seen {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	var owners []string
+	for _, name := range names {
+		inGroup := func(group string) bool { return members[group][name] }
+		if missing := cfg.Missing(inGroup); len(missing) > 0 {
+			problems = append(problems, fmt.Sprintf("%s isn't in %s, which its other groups require", name, strings.Join(missing, " or ")))
+		}
+		allowed, err := sudo(name)
+		isOwner := inGroup(cfg.OwnerGroup)
+		switch {
+		case err != nil:
+			problems = append(problems, "couldn't check sudo for "+name)
+		case isOwner && !allowed:
+			problems = append(problems, name+" is in "+cfg.OwnerGroup+" but can't use sudo")
+		case !isOwner && allowed:
+			problems = append(problems, name+" can use sudo but isn't in "+cfg.OwnerGroup)
+		}
+		if isOwner {
+			owners = append(owners, name)
+		}
+	}
+	if len(owners) == 0 {
+		problems = append(problems, "nobody is in "+cfg.OwnerGroup)
+	}
+	if len(problems) > 0 {
+		return StatusWarn, strings.Join(problems, "; ")
+	}
+	return StatusOK, "owners with sudo: " + strings.Join(owners, ", ") + "; nobody else in the pispot groups has it"
+}
+
+func checkAccounts(ctx context.Context, cfg groups.Config) Check {
+	c := Check{Name: "Account groups and sudo"}
+	members, err := users.GroupMembers("/etc/passwd", "/etc/group")
+	if err != nil {
+		c.Status, c.Detail = StatusWarn, "couldn't read the account files"
+		return c
+	}
+	_, statErr := os.Stat(sudoersPath)
+	c.Status, c.Detail = classifyAccounts(cfg, members, statErr == nil, func(name string) (bool, error) {
+		return canSudo(ctx, name)
+	})
 	return c
 }
 

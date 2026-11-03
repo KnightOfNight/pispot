@@ -44,6 +44,22 @@ func (c Config) Level(inGroup func(group string) bool) Level {
 	}
 }
 
+// Missing returns the groups an account should also be in, given the highest
+// group it holds. It's empty for an account that keeps to the ladder.
+func (c Config) Missing(inGroup func(group string) bool) []string {
+	ladder := []string{c.ReadonlyGroup, c.AdminGroup, c.OwnerGroup}
+	var missing, gaps []string
+	for _, group := range ladder {
+		if !inGroup(group) {
+			gaps = append(gaps, group)
+			continue
+		}
+		missing = append(missing, gaps...)
+		gaps = nil
+	}
+	return missing
+}
+
 // Resolve returns the pispot role ("readonly" or "admin") for the given
 // username. Owners get the admin role: being an owner only stops the account
 // being managed from the dashboard. An account with no level gets

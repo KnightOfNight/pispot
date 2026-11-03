@@ -1,0 +1,4 @@
+# Installed as /etc/sudoers.d/pispot. Owners get sudo, with a password.
+# pispot-admin deliberately doesn't: the dashboard can grant admin, so giving it
+# sudo would let a web page grant root. Admin actions go through pispot-authd.
+%pispot-owner ALL=(ALL:ALL) ALL

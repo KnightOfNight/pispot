@@ -119,10 +119,14 @@ func readLines(path string) ([]string, error) {
 	return lines, s.Err()
 }
 
-// groupMembers maps each group name to its members, including accounts that
-// have it as their primary group, which /etc/group doesn't list.
 func (m *Manager) groupMembers() (map[string]map[string]bool, error) {
-	lines, err := readLines(m.groupPath)
+	return GroupMembers(m.passwdPath, m.groupPath)
+}
+
+// GroupMembers maps each group name to its members, including accounts that
+// have it as their primary group, which the group file doesn't list.
+func GroupMembers(passwdPath, groupPath string) (map[string]map[string]bool, error) {
+	lines, err := readLines(groupPath)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +146,7 @@ func (m *Manager) groupMembers() (map[string]map[string]bool, error) {
 		out[f[0]] = members
 		nameByGID[f[2]] = f[0]
 	}
-	passwd, err := readLines(m.passwdPath)
+	passwd, err := readLines(passwdPath)
 	if err != nil {
 		return nil, err
 	}

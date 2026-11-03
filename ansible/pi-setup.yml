@@ -133,6 +133,15 @@
         group: root
         mode: "0644"
 
+    - name: Give pispot-owner members sudo
+      copy:
+        src: "{{ playbook_dir }}/../host/files/pispot.sudoers"
+        dest: /etc/sudoers.d/pispot
+        owner: root
+        group: root
+        mode: "0440"
+        validate: /usr/sbin/visudo -cf %s
+
     - name: Create /etc/pispot configuration directory
       file:
         path: /etc/pispot

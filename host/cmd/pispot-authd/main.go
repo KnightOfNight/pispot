@@ -78,7 +78,7 @@ func handleRequest(ctx context.Context, req socket.Request, cfg groups.Config, a
 	case socket.OpWifiReload:
 		return handleWifiReload()
 	case socket.OpDiag:
-		report := diag.Collect(ctx)
+		report := diag.Collect(ctx, cfg)
 		return socket.Response{Ok: true, Diag: &report}
 	case socket.OpUserList, socket.OpUserCreate, socket.OpUserUpdate, socket.OpUserDelete:
 		return handleUserOp(req, accounts)

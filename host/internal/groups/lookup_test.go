@@ -1,6 +1,36 @@
 package groups
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
+
+func TestMissingFindsGapsInTheLadder(t *testing.T) {
+	cfg := Config{ReadonlyGroup: "ro", AdminGroup: "admin", OwnerGroup: "owner"}
+	cases := []struct {
+		groups []string
+		want   string
+	}{
+		{nil, ""},
+		{[]string{"ro"}, ""},
+		{[]string{"ro", "admin"}, ""},
+		{[]string{"ro", "admin", "owner"}, ""},
+		{[]string{"admin"}, "ro"},
+		{[]string{"owner"}, "ro,admin"},
+		{[]string{"ro", "owner"}, "admin"},
+		{[]string{"admin", "owner"}, "ro"},
+	}
+	for _, c := range cases {
+		in := map[string]bool{}
+		for _, g := range c.groups {
+			in[g] = true
+		}
+		got := strings.Join(cfg.Missing(func(group string) bool { return in[group] }), ",")
+		if got != c.want {
+			t.Errorf("Missing(%v) = %q, want %q", c.groups, got, c.want)
+		}
+	}
+}
 
 func TestLevelRequiresEveryLowerGroup(t *testing.T) {
 	cfg := Config{ReadonlyGroup: "ro", AdminGroup: "admin", OwnerGroup: "owner"}
