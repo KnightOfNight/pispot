@@ -4,9 +4,11 @@
   "use strict";
 
   const MIN_PASSWORD = 8;
+  const STATUS_MS = 6000;
   const $ = (id) => document.getElementById(id);
 
   let loaded = false;
+  let statusTimer = null;
 
   function el(tag, className, text) {
     const node = document.createElement(tag);
@@ -35,30 +37,60 @@
     return "";
   }
 
-  async function change(action) {
+  function setStatus(message) {
+    clearTimeout(statusTimer);
+    $("users-status").textContent = message;
+    if (message) {
+      statusTimer = setTimeout(() => { $("users-status").textContent = ""; }, STATUS_MS);
+    }
+  }
+
+  async function change(action, successMessage) {
     $("users-error").textContent = "";
+    setStatus("");
     try {
       await action();
+      setStatus(successMessage);
     } catch (e) {
       $("users-error").textContent = e.message;
     }
     await load();
   }
 
-  function adminCheckbox(u, isMe) {
+  function checkboxCell(u, label, checked) {
     const box = el("input");
     box.type = "checkbox";
-    box.checked = u.admin;
-    box.setAttribute("aria-label", `${u.username}: admin`);
-    if (isMe) {
+    box.checked = checked;
+    box.setAttribute("aria-label", `${u.username}: ${label}`);
+    const cell = el("td");
+    cell.append(box);
+    return [cell, box];
+  }
+
+  function adminCheckbox(u, isMe) {
+    const [cell, box] = checkboxCell(u, "admin", u.admin);
+    if (u.owner) {
+      box.disabled = true;
+      box.title = "Owners can only be changed over SSH";
+    } else if (isMe) {
       box.disabled = true;
       box.title = "You can't remove your own admin access";
     }
-    box.addEventListener("change", () => {
-      change(() => api("PATCH", userPath(u.username), { admin: box.checked }));
+    box.addEventListener("change", async () => {
+      // A second click can't send another change while this one is saving.
+      box.disabled = true;
+      const message = box.checked ? `${u.username} is now an admin.` : `Removed admin from ${u.username}.`;
+      await change(() => api("PATCH", userPath(u.username), { admin: box.checked }), message);
+      box.disabled = false;
     });
-    const cell = el("td");
-    cell.append(box);
+    return cell;
+  }
+
+  // Owner is never changed from this page, on any account.
+  function ownerCheckbox(u) {
+    const [cell, box] = checkboxCell(u, "owner", Boolean(u.owner));
+    box.disabled = true;
+    box.title = "Owner can only be changed over SSH";
     return cell;
   }
 
@@ -66,7 +98,7 @@
     const row = el("tr", "users-password-row");
     row.hidden = true;
     const cell = el("td");
-    cell.colSpan = 3;
+    cell.colSpan = 4;
     const form = el("form", "users-form");
     form.autocomplete = "off";
 
@@ -98,7 +130,7 @@
       const value = password.value;
       password.value = "";
       confirm.value = "";
-      change(() => api("PATCH", userPath(u.username), { password: value }));
+      change(() => api("PATCH", userPath(u.username), { password: value }), `Password changed for ${u.username}.`);
     });
     return row;
   }
@@ -109,7 +141,13 @@
     const name = el("td", "mono", u.username);
     if (isMe) name.append(el("span", "sub", " (you)"));
     row.append(name);
-    row.append(adminCheckbox(u, isMe));
+    row.append(adminCheckbox(u, isMe), ownerCheckbox(u));
+
+    // Owners have no Password or Delete buttons: the server refuses both.
+    if (u.owner) {
+      row.append(el("td"));
+      return [row];
+    }
 
     const pwRow = passwordRow(u, isMe);
     const actions = el("div", "users-actions");
@@ -124,7 +162,7 @@
     } else {
       del.addEventListener("click", () => {
         if (!window.confirm(`Delete user "${u.username}"? Their home folder will be kept.`)) return;
-        change(() => api("DELETE", userPath(u.username)));
+        change(() => api("DELETE", userPath(u.username)), `Deleted ${u.username}. Their home folder was kept.`);
       });
     }
     actions.append(pw, del);
@@ -148,19 +186,19 @@
     e.preventDefault();
     const errorEl = $("user-add-error");
     errorEl.textContent = "";
+    setStatus("");
     const password = $("add-password").value;
     const problem = passwordProblem(password, $("add-confirm").value);
     if (problem) {
       errorEl.textContent = problem;
       return;
     }
+    const username = $("add-username").value.trim();
+    const admin = $("add-admin").checked;
     try {
-      await api("POST", "/api/users", {
-        username: $("add-username").value.trim(),
-        password,
-        admin: $("add-admin").checked,
-      });
+      await api("POST", "/api/users", { username, password, admin });
       $("user-add").reset();
+      setStatus(admin ? `Added ${username} as an admin.` : `Added ${username}.`);
       await load();
     } catch (err) {
       errorEl.textContent = err.message;

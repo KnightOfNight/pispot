@@ -1,8 +1,9 @@
 // Package users manages dashboard accounts, which are Unix accounts.
 //
 // An account is managed only if it's a human account (UID 1000 to 59999), in
-// the basic access group, and not in the owner group. Every other account can't
-// be listed or changed here, so it's managed over SSH.
+// the basic access group, and not in the owner group. Owners are listed so
+// admins can see them, but can't be changed here. Every other account isn't
+// listed either. Both are managed over SSH.
 //
 // Every change this package makes keeps to the group ladder in package groups:
 // accounts get basic access, admin can be added or removed on top of it, and
@@ -55,11 +56,12 @@ var (
 	ErrNothingToChange = errors.New("nothing to change")
 )
 
-// Account is one managed account.
+// Account is one account shown on the Users tab.
 type Account struct {
 	Username string `json:"username"`
 	UID      int    `json:"uid"`
 	Admin    bool   `json:"admin"`
+	Owner    bool   `json:"owner"`
 }
 
 type runFunc func(stdin string, name string, args ...string) (string, error)
@@ -162,7 +164,7 @@ func GroupMembers(passwdPath, groupPath string) (map[string]map[string]bool, err
 	return out, nil
 }
 
-// List returns the managed accounts, in /etc/passwd order.
+// List returns the managed accounts and the owners, in /etc/passwd order.
 func (m *Manager) List() ([]Account, error) {
 	lines, err := readLines(m.passwdPath)
 	if err != nil {
@@ -186,25 +188,28 @@ func (m *Manager) List() ([]Account, error) {
 		if err != nil || uid < minUID || uid > maxUID {
 			continue
 		}
-		if !members[m.groups.ReadonlyGroup][f[0]] || members[m.groups.OwnerGroup][f[0]] {
+		owner := members[m.groups.OwnerGroup][f[0]]
+		if !owner && !members[m.groups.ReadonlyGroup][f[0]] {
 			continue
 		}
 		accounts = append(accounts, Account{
 			Username: f[0],
 			UID:      uid,
 			Admin:    members[m.groups.AdminGroup][f[0]],
+			Owner:    owner,
 		})
 	}
 	return accounts, nil
 }
 
+// find returns an account that can be changed here, which rules out owners.
 func (m *Manager) find(username string) (Account, bool, error) {
 	accounts, err := m.List()
 	if err != nil {
 		return Account{}, false, err
 	}
 	for _, a := range accounts {
-		if a.Username == username {
+		if a.Username == username && !a.Owner {
 			return a, true, nil
 		}
 	}

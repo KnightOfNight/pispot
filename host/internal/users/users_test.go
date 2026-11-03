@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -80,19 +81,23 @@ func (f *fixture) commands() string {
 func boolPtr(b bool) *bool { return &b }
 
 // ctg is an owner in all three groups, erin is in the owner group without
-// admin, and frank has it as a primary group. carol is in no group, dave is an
-// admin outside the basic group, and daemon and nobody are in the basic group
-// but aren't human accounts.
-func TestListShowsOnlyManagedAccounts(t *testing.T) {
+// admin, and frank has it as a primary group. All three are listed as owners.
+// carol is in no group, dave is an admin outside the basic group, and daemon
+// and nobody are in the basic group but aren't human accounts, so none of them
+// are listed.
+func TestListShowsManagedAccountsAndOwners(t *testing.T) {
 	got, err := newFixture(t).m.List()
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := []Account{
-		{Username: "alice", UID: 1001, Admin: false},
+		{Username: "ctg", UID: 1000, Admin: true, Owner: true},
+		{Username: "alice", UID: 1001},
 		{Username: "bob", UID: 1002, Admin: true},
+		{Username: "erin", UID: 1005, Owner: true},
+		{Username: "frank", UID: 1006, Owner: true},
 	}
-	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+	if !slices.Equal(got, want) {
 		t.Errorf("List = %+v, want %+v", got, want)
 	}
 }

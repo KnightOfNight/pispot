@@ -259,7 +259,8 @@ An account can't be in a group without being in every lower one, so it's in
 one, two or all three of them. A group doesn't count if a lower one is missing:
 an account in `pispot-admin` but not `pispot-ro` can't log in, and one in
 `pispot-ro` and `pispot-owner` but not `pispot-admin` is only read-only. It
-stays off the Users tab either way, since being in `pispot-owner` is enough.
+still can't be changed from the Users tab, since being in `pispot-owner` is
+enough.
 
 Only owners get `sudo`, from `/etc/sudoers.d/pispot`. Admins don't need it,
 because dashboard actions go through `pispot-authd`, which runs as root and only
@@ -315,7 +316,7 @@ Credentials are validated via PAM on each login (cached for 5 minutes).
 | Networking | Interfaces, hotspot clients, WAN, system | All logins |
 | Power | Epic PWRgate, grayed out unless it's on USB | All logins |
 | Logs | Health summary, system details and service logs | `pispot-admin` only |
-| Users | Add, change and delete `pispot-ro` accounts | `pispot-admin` only |
+| Users | List accounts, and add, change and delete non-owners | `pispot-admin` only |
 
 The Logs tab is read-only and shows the output of a fixed list of commands in
 `host/internal/diag/diag.go`. It never reads the Wi-Fi configs or TLS private
@@ -324,10 +325,10 @@ source, keep secrets out of it: the filter is only a second layer.
 
 The Users tab manages only human accounts (UIDs 1000 to 59999) in `pispot-ro`
 and not in `pispot-owner`. New accounts always join `pispot-ro`, and
-`pispot-admin` is an optional extra on top. The page can't add anyone to
-`pispot-owner`. Owners don't appear on the page and can't be changed from it,
-which is how the account from `make init` stays out of reach, so manage them
-over SSH. They can still use the page to manage everyone else.
+`pispot-admin` is an optional extra on top. The page lists owners too, but can't
+add anyone to `pispot-owner` or change an owner in any way, which keeps the
+account from `make init` out of reach. Manage owners over SSH. They can still
+use the page to manage everyone else.
 
 You can't delete your own account or remove your own admin access. New
 accounts get no shell, so they can log in to the dashboard but not SSH.

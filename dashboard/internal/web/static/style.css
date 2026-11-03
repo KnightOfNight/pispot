@@ -328,6 +328,14 @@ th {
    as a populated error in a sibling pane. */
 .error:empty { display: none; }
 
+.users-status {
+  font-size: 12px;
+  margin-top: 8px;
+  margin-bottom: 8px;
+}
+
+.users-status:empty { display: none; }
+
 footer {
   max-width: 1100px;
   margin: 0 auto;

@@ -122,10 +122,10 @@
     <section>
       <h2>Users</h2>
       <div class="error" id="users-error"></div>
-      <div class="summary">Shows accounts in the <span class="mono">pispot-ro</span> group, except those in <span class="mono">pispot-owner</span>. Other accounts are managed over SSH.</div>
+      <div class="users-status ok" id="users-status" role="status"></div>
       <table class="users-table">
         <thead>
-          <tr><th>User</th><th>Admin</th><th></th></tr>
+          <tr><th>User</th><th>Admin</th><th>Owner</th><th></th></tr>
         </thead>
         <tbody id="users-rows"></tbody>
       </table>
@@ -140,7 +140,6 @@
         <label><input type="checkbox" id="add-admin"> Admin</label>
         <button type="submit" class="ctrl-btn">Add user</button>
       </form>
-      <div class="sub">New users get basic access and can log in to this dashboard only, not SSH.</div>
       <div class="error" id="user-add-error"></div>
     </section>
   </main>
