@@ -96,6 +96,7 @@ type Meta struct {
 	Dirty         bool   `json:"dirty"`
 	BuildTime     string `json:"build_time"`
 	Role          string `json:"role"`
+	Username      string `json:"username"`
 	// PWRgateConnected reports whether the device is on USB.
 	PWRgateConnected bool `json:"pwrgate_connected"`
 }
@@ -456,6 +457,7 @@ func (s *Server) Stats() http.HandlerFunc {
 				Dirty:            buildinfo.IsDirty(),
 				BuildTime:        buildinfo.BuildTime,
 				Role:             authz.RoleFromContext(r.Context()),
+				Username:         authz.UsernameFromContext(r.Context()),
 				PWRgateConnected: pwrgate.Present(s.cfg.SysPath),
 			},
 		}

@@ -312,6 +312,8 @@
     $("meta-commit").textContent    = m.commit || "-";
     $("meta-buildtime").textContent = m.build_time || "-";
     $("meta-dirty").hidden          = !m.dirty;
+    $("login-user").textContent     = m.username || "";
+    $("login-user").hidden          = !m.username;
     // Track role globally so renderWAN can use it without receiving it
     // as a parameter. meta is rendered last, so currentRole is already
     // set when renderWAN first fires on the next cycle.
