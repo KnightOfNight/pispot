@@ -341,6 +341,14 @@
     return Boolean(tab) && !tab.disabled && !tab.hidden;
   }
 
+  // The refresh dropdown only affects what the Networking tab shows, so it's
+  // hidden elsewhere. The timer keeps running either way, to keep the status
+  // label and tab availability current.
+  function showRefreshControl(visible) {
+    $("interval-label").hidden = !visible;
+    $("interval").hidden = !visible;
+  }
+
   function showTab(name) {
     activeTab = TABS.includes(name) && tabAvailable(name) ? name : "networking";
     for (const t of TABS) {
@@ -349,6 +357,7 @@
       $(`tab-${t}`).classList.toggle("tab-active", selected);
       $(`tab-${t}`).setAttribute("aria-selected", String(selected));
     }
+    showRefreshControl(activeTab === "networking");
     document.dispatchEvent(new CustomEvent("pispot:tab", { detail: activeTab }));
   }
 
@@ -374,6 +383,9 @@
   }
 
   function initTabs() {
+    // Avoid a flash of the dropdown when reloading on another tab.
+    const startTab = tabFromHash();
+    showRefreshControl(startTab === "" || startTab === "networking");
     for (const t of TABS) {
       $(`tab-${t}`).addEventListener("click", () => {
         window.location.hash = t;
