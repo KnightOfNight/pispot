@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>pispot LCARS</title>
+<link rel="stylesheet" href="mock.css">
+<style>
+  @font-face { font-family: "Antonio"; src: url("fonts/Antonio-VF.ttf") format("truetype"); font-weight: 100 700; }
+  :root {
+    --orange: #ff9900; --peach: #ffcc99; --lavender: #cc99cc; --blue: #9999ff; --red: #cc6666;
+    --yellow: #ffff99; --tan: #ffcc66; --pale: #99ccff; --violet: #9977aa; --bg: #000;
+    --font: "Antonio", "Avenir Next Condensed", "Arial Narrow", sans-serif;
+  }
+  .stage { background: var(--bg); font-family: var(--font); color: var(--orange); text-transform: uppercase; user-select: none; }
+  .frame { position: absolute; inset: 16px 20px; display: grid; grid-template-columns: 150px 1fr; grid-template-rows: 90px 1fr 60px; column-gap: 8px; }
+
+  /* elbows and bars */
+  .elbow-top { grid-column: 1; grid-row: 1; background: var(--orange); border-radius: 60px 0 0 0; position: relative; }
+  .elbow-top::after { content: ""; position: absolute; right: -8px; top: 0; width: 8px; height: 100%; background: var(--orange); }
+  .top-bar { grid-column: 2; grid-row: 1; position: relative; }
+  .top-bar .bar { position: absolute; left: 0; right: 0; bottom: 0; height: 28px; background: var(--orange); border-radius: 0 14px 14px 0; }
+  .top-bar .bar::before { content: ""; position: absolute; left: 0; top: -62px; width: 60px; height: 62px; background: var(--bg); border-radius: 30px 0 0 0; }
+  .top-bar .title { position: absolute; right: 24px; top: 0; font-size: 44px; font-weight: 400; color: var(--peach); letter-spacing: 1px; }
+  .top-bar .code { position: absolute; left: 70px; bottom: 32px; font-size: 20px; color: var(--lavender); }
+  .top-bar .bar .seg { position: absolute; top: 0; bottom: 0; }
+  .side { grid-column: 1; grid-row: 2; display: flex; flex-direction: column; gap: 6px; padding-top: 6px; }
+  .side .blk { flex: 0 0 auto; height: 74px; display: flex; align-items: flex-end; justify-content: flex-end; padding: 0 10px 6px 0;
+    font-size: 20px; color: #000; font-weight: 500; letter-spacing: .5px; cursor: pointer; }
+  .side .blk:last-child { flex: 1; }
+  .elbow-bot { grid-column: 1; grid-row: 3; background: var(--tan); border-radius: 0 0 0 40px; margin-top: 6px; position: relative; }
+  .elbow-bot::after { content: ""; position: absolute; right: -8px; bottom: 0; width: 8px; height: 100%; background: var(--tan); }
+  .bot-bar { grid-column: 2; grid-row: 3; position: relative; margin-top: 6px; }
+  .bot-bar .bar { position: absolute; left: 0; right: 0; top: 0; height: 22px; background: var(--tan); border-radius: 0 11px 11px 0; }
+  .bot-bar .bar::before { content: ""; position: absolute; left: 0; bottom: -38px; width: 50px; height: 38px; background: var(--bg); border-radius: 0 0 0 25px; }
+  .bot-bar .foot { position: absolute; left: 70px; right: 20px; top: 28px; display: flex; justify-content: space-between; font-size: 20px; color: var(--pale); }
+
+  /* content */
+  .content { grid-column: 2; grid-row: 2; padding: 10px 0 0 18px; display: grid; grid-template-columns: 1.15fr 1fr; gap: 18px; }
+  .block h2 { margin: 0 0 6px; font-size: 20px; color: var(--lavender); font-weight: 400; letter-spacing: 2px; border-bottom: 2px solid var(--violet); padding-bottom: 2px; }
+  .readouts { display: grid; grid-template-columns: 1fr; gap: 10px; }
+  .ro { display: grid; grid-template-columns: 170px 1fr 120px; align-items: baseline; gap: 10px; }
+  .ro .lbl { font-size: 24px; color: var(--peach); }
+  .ro .lbl small { display: block; font-size: 15px; color: var(--blue); }
+  .ro .val { font-size: 86px; line-height: .95; text-align: right; font-weight: 300; font-variant-numeric: tabular-nums; color: var(--pale); }
+  .ro .val small { font-size: 28px; margin-left: 4px; color: var(--peach); }
+  .ro .state { font-size: 17px; color: var(--tan); text-align: left; line-height: 1.2; }
+  .ro.ok .val { color: var(--pale); } .ro.warn .val { color: var(--yellow); } .ro.bad .val { color: var(--red); animation: blink 1s steps(2, start) infinite; } .ro.off .val { color: #665; }
+  @keyframes blink { to { visibility: hidden; } }
+  .ro.charging .state::before { content: "▸▸ "; color: var(--pale); animation: blink 1s steps(2, start) infinite; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 20px; color: var(--peach); }
+  td, th { padding: 4px 6px; text-align: left; white-space: nowrap; }
+  th { color: var(--blue); font-weight: 400; font-size: 15px; letter-spacing: 1.5px; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  tr.idle td { color: #776; }
+  td .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--pale); margin-right: 8px; vertical-align: 1px; }
+  tr.idle td .dot { background: #443; }
+  .wx { margin-top: 14px; display: grid; grid-template-columns: 120px 1fr; gap: 10px; align-items: center; }
+  .wx .t { font-size: 70px; line-height: .9; color: var(--pale); font-weight: 300; }
+  .wx .t small { font-size: 24px; color: var(--peach); }
+  .wx .d { font-size: 19px; color: var(--peach); line-height: 1.35; }
+  .wx .d span { color: var(--blue); }
+  .alert { position: absolute; right: 24px; top: 36px; font-size: 22px; color: var(--red); display: none; }
+  .frame.redalert .alert { display: block; animation: blink 1s steps(2, start) infinite; }
+  .frame.redalert .elbow-top, .frame.redalert .top-bar .bar, .frame.redalert .elbow-top::after { background: var(--red); }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="frame" id="frame">
+    <div class="elbow-top"></div>
+    <div class="top-bar">
+      <div class="title">pispot · power management</div>
+      <div class="code" id="code">LCARS 47-2109</div>
+      <div class="bar"><div class="seg" style="left:62%;width:4px;background:#000"></div><div class="seg" style="left:80%;width:4px;background:#000"></div><div class="seg" style="left:62.4%;width:17.3%;background:var(--lavender)"></div></div>
+      <div class="alert">battery low</div>
+    </div>
+
+    <div class="side">
+      <div class="blk" style="background:var(--peach)">power</div>
+      <div class="blk" style="background:var(--lavender)">network</div>
+      <div class="blk" style="background:var(--blue)">weather</div>
+      <div class="blk" style="background:var(--violet)">nav</div>
+      <div class="blk" style="background:var(--tan)"><span id="side-clock">--:--</span></div>
+    </div>
+
+    <div class="content">
+      <div class="block">
+        <h2>power bus status</h2>
+        <div class="readouts">
+          <div class="ro" id="l-truck"><div class="lbl">truck<small id="l-truck-sub">-</small></div><div class="val"><span id="l-truck-v">--.--</span><small>V</small></div><div class="state" id="l-truck-s">-</div></div>
+          <div class="ro" id="l-solar"><div class="lbl">solar<small id="l-solar-sub">-</small></div><div class="val"><span id="l-solar-v">--.--</span><small>V</small></div><div class="state" id="l-solar-s">-</div></div>
+          <div class="ro" id="l-batt"><div class="lbl">battery<small id="l-batt-sub">-</small></div><div class="val"><span id="l-batt-v">--.--</span><small>V</small></div><div class="state" id="l-batt-s">-</div></div>
+        </div>
+      </div>
+      <div class="block">
+        <h2>hotspot clients · <span id="l-count">-</span></h2>
+        <table><thead><tr><th>host</th><th>status</th><th class="num">rx kb/s</th><th class="num">tx kb/s</th></tr></thead><tbody id="l-clients"></tbody></table>
+        <h2 style="margin-top:14px">environment</h2>
+        <div class="wx"><div class="t"><span id="l-temp">--</span><small>°F</small></div>
+          <div class="d" id="l-wx">-</div></div>
+      </div>
+    </div>
+
+    <div class="elbow-bot"></div>
+    <div class="bot-bar"><div class="bar"></div>
+      <div class="foot"><span id="l-wan">-</span><span id="l-gps">-</span><span id="l-sys">-</span></div></div>
+  </div>
+</div>
+
+<script src="mock-data.js"></script>
+<script src="mock-stage.js"></script>
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  MOCK.subscribe(function (s) {
+    var p = s.power;
+    $("side-clock").textContent = MOCK.hhmm(s.system.time);
+
+    var tc = MOCK.voltClass("supply", p);
+    $("l-truck").className = "ro " + tc + (p.present && p.charger.source === "supply" ? " charging" : "");
+    $("l-truck-v").textContent = p.present && p.supply.connected ? p.supply.volts.toFixed(2) : "--.--";
+    $("l-truck-sub").textContent = !p.present ? "no data" : !p.supply.connected ? "offline" : p.supply.engine ? "engine running" : "engine off";
+    $("l-truck-s").textContent = !p.present || !p.supply.connected ? "" : tc === "warn" ? "below charge minimum" : p.charger.source === "supply" ? "feeding battery · " + p.charger.mode : "nominal";
+
+    var sc = MOCK.voltClass("solar", p);
+    $("l-solar").className = "ro " + sc + (p.present && p.charger.source === "solar" ? " charging" : "");
+    $("l-solar-v").textContent = p.present && p.solar.connected ? p.solar.volts.toFixed(1) : "--.--";
+    $("l-solar-sub").textContent = !p.present ? "no data" : !p.solar.connected ? "offline" : p.solar.watts ? p.solar.watts + " W" : "standby";
+    $("l-solar-s").textContent = !p.present || !p.solar.connected ? "" : p.charger.source === "solar" ? "feeding battery" : sc === "warn" ? "insufficient light" : "nominal";
+
+    var bc = MOCK.voltClass("battery", p);
+    $("l-batt").className = "ro " + bc;
+    $("l-batt-v").textContent = p.present ? p.battery.volts.toFixed(2) : "--.--";
+    $("l-batt-sub").textContent = p.present ? p.battery.soc + "% est" : "no data";
+    $("l-batt-s").textContent = !p.present ? "" : p.battery.amps > 0.05 ? "charging " + p.battery.amps.toFixed(1) + " A" : p.battery.amps < -0.05 ? "discharging " + (-p.battery.amps).toFixed(1) + " A" : "idle";
+    $("frame").classList.toggle("redalert", bc === "bad");
+
+    var n = s.network;
+    $("l-count").textContent = n.clients.length + " on " + n.ssid;
+    $("l-clients").innerHTML = n.clients.map(function (c) {
+      return "<tr" + (c.active ? "" : ' class="idle"') + "><td><span class=dot></span>" + c.name + "</td><td>" + (c.active ? (c.note || "active") : "idle") +
+        '</td><td class="num">' + (c.active ? c.rxKbps : "—") + '</td><td class="num">' + (c.active ? c.txKbps : "—") + "</td></tr>";
+    }).join("");
+    var w = s.weather;
+    $("l-temp").textContent = w.tempF;
+    $("l-wx").innerHTML = w.cond + "<br><span>wind</span> " + w.windMph + " mph " + w.windDir + " · <span>hum</span> " + w.humidity + "%<br><span>sunset</span> " + w.sunset + " · " + w.place;
+    $("l-wan").textContent = "wan " + (n.wan.up ? n.wan.ssid + " ↓" + MOCK.fmtKbps(n.wan.rxKbps) + " ↑" + MOCK.fmtKbps(n.wan.txKbps) : "down");
+    $("l-gps").textContent = s.gps.fix ? "gps " + s.gps.lat.toFixed(3) + " " + s.gps.lon.toFixed(3) + " · " + s.gps.sats + " sats" : "gps no fix";
+    $("l-sys").textContent = "cpu " + s.system.tempC.toFixed(0) + "°C · up " + s.system.uptime;
+  });
+})();
+</script>
+</body>
+</html>

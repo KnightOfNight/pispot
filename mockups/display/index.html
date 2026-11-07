@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>pispot display mockups</title>
+<style>
+  body { margin: 0; background: #0b0e12; color: #d6dde3; font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  main { max-width: 900px; margin: 40px auto; padding: 0 20px; }
+  h1 { color: #5aa9ff; font-weight: 600; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+  a.card { display: block; background: #151a21; border: 1px solid #2a313a; border-radius: 8px; padding: 16px; color: inherit; text-decoration: none; }
+  a.card:hover { border-color: #5aa9ff; }
+  a.card h2 { margin: 0 0 6px; font-size: 17px; }
+  a.card p { margin: 0; color: #7e8896; }
+  kbd { background: #222932; border: 1px solid #3a4350; border-radius: 4px; padding: 0 5px; font-size: 13px; }
+  .note { color: #7e8896; margin-top: 24px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>pispot display mockups</h1>
+  <p>Each page is a fixed 1280×720 stage, the size of the 5" Touch Display 2 in landscape, scaled to fit your window. Fake data; press <kbd>1</kbd>–<kbd>5</kbd> on any page to change the power scenario. Add <code>?kiosk</code> to hide the switcher.</p>
+  <div class="cards">
+    <a class="card" href="dsky.html"><h2>DSKY</h2><p>Apollo Guidance Computer homage. Type VERB 16 NOUN 30 ENTR for power, N40 for network, V05 N40 for the client list, V35 for a lamp test.</p></a>
+    <a class="card" href="plain.html"><h2>Plain</h2><p>Power rows with icons and colour-coded voltages, weather, and a network summary. Tap the network card for the map.</p></a>
+    <a class="card" href="netmap.html"><h2>Network map</h2><p>Hosts with pictures and notes; dotted lines move while traffic flows.</p></a>
+    <a class="card" href="lcars.html"><h2>LCARS</h2><p>Star Trek TNG console look.</p></a>
+  </div>
+  <p class="note">See README.md in this folder for the project buckets.</p>
+</main>
+</body>
+</html>

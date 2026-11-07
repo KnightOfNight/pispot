@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>pispot network map</title>
+<link rel="stylesheet" href="mock.css">
+<style>
+  :root { --bg: #0b0e12; --card: #151a21; --border: #263038; --fg: #e6ebf0; --muted: #86929f;
+    --ok: #3ccf6b; --off: #3a4552; --accent: #5aa9ff; --rx: #5aa9ff; --tx: #e8a33d; }
+  .stage { background: var(--bg); color: var(--fg); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; user-select: none; }
+  svg.wires { position: absolute; inset: 0; width: 1280px; height: 720px; }
+  .wire { fill: none; stroke-linecap: round; }
+  .wire.idle { stroke: var(--off); stroke-dasharray: 3 9; }
+  .wire.rx { stroke: var(--rx); stroke-dasharray: 2 10; animation: flow 1s linear infinite; }
+  .wire.tx { stroke: var(--tx); stroke-dasharray: 2 10; animation: flow 1s linear infinite reverse; }
+  @keyframes flow { to { stroke-dashoffset: -12; } }
+  .wire-label { fill: var(--fg); font-size: 13px; text-anchor: middle; paint-order: stroke; stroke: var(--bg); stroke-width: 6px; stroke-linejoin: round; }
+
+  .node { position: absolute; width: 190px; transform: translate(-50%, -50%); text-align: center; }
+  .node .pic { width: 150px; height: 84px; margin: 0 auto; background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    display: flex; align-items: center; justify-content: center; color: var(--muted); position: relative; overflow: hidden; }
+  .node .pic svg { width: 64px; height: 64px; }
+  .node .pic img { width: 100%; height: 100%; object-fit: cover; }
+  .node.active .pic { border-color: var(--ok); color: var(--fg); box-shadow: 0 0 18px rgba(60,207,107,.25); }
+  .node .name { font-size: 19px; font-weight: 600; margin-top: 6px; line-height: 1.15; }
+  .node .note { font-size: 14px; color: var(--ok); min-height: 17px; line-height: 1.2; }
+  .node .sub { font-size: 13px; color: var(--muted); font-family: ui-monospace, Menlo, monospace; }
+  .node .sig { position: absolute; right: 8px; top: 6px; font-size: 12px; color: var(--muted); font-family: ui-monospace, Menlo, monospace; }
+  .node.hub .pic { width: 170px; height: 110px; border-color: var(--accent); color: var(--accent); }
+  .node.hub .pic svg { width: 80px; height: 80px; }
+  .node.hub .name { color: var(--accent); }
+  .node .pic.photo-slot { border-style: dashed; }
+  .node .pic.photo-slot span { font-size: 12px; position: absolute; bottom: 4px; left: 0; right: 0; }
+
+  header { position: absolute; left: 18px; top: 10px; right: 18px; display: flex; justify-content: space-between; align-items: center; }
+  header h1 { margin: 0; font-size: 22px; color: var(--accent); font-weight: 600; }
+  header .legend { color: var(--muted); font-size: 14px; display: flex; gap: 16px; align-items: center; }
+  header .legend i { display: inline-block; width: 28px; height: 0; border-top: 3px dotted; vertical-align: middle; margin-right: 6px; }
+  header .legend .rx i { border-color: var(--rx); } header .legend .tx i { border-color: var(--tx); } header .legend .idle i { border-color: var(--off); }
+  .back { position: absolute; left: 18px; bottom: 12px; color: var(--accent); font-size: 30px; font-weight: 600; letter-spacing: 4px; cursor: pointer; }
+  header .clock { font-size: 22px; font-weight: 300; color: var(--muted); margin-left: 16px; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <svg class="wires" id="wires"></svg>
+  <header>
+    <div style="display:flex;align-items:baseline"><h1>Network</h1><span class="clock" id="clock"></span></div>
+    <div class="legend"><span class="rx"><i></i>to client</span><span class="tx"><i></i>from client</span><span class="idle"><i></i>idle</span></div>
+  </header>
+  <div id="nodes"></div>
+  <div class="back" onclick="location.href='plain.html'">‹ BACK</div>
+</div>
+
+<script src="mock-data.js"></script>
+<script src="icons.js"></script>
+<script src="mock-stage.js"></script>
+<script>
+(function () {
+  "use strict";
+  var HUB = { x: 470, y: 370 }, CLOUD = { x: 140, y: 370 };
+  // Clients alternate between two columns so their cards never overlap.
+  function clientPos(i, count) {
+    var top = 110, bottom = 620;
+    var y = count === 1 ? 370 : top + (bottom - top) * i / (count - 1);
+    return { x: i % 2 === 0 ? 900 : 1140, y: y };
+  }
+  var built = false;
+
+  function width(kbps) { return Math.max(2, Math.min(9, 2 + Math.log10(kbps + 1) * 2)); }
+  function node(id, cls, x, y, inner) {
+    return '<div class="node ' + cls + '" id="' + id + '" style="left:' + x + 'px;top:' + y + 'px">' + inner + "</div>";
+  }
+  function wirePath(a, b, off) {
+    var mx = (a.x + b.x) / 2;
+    return "M" + a.x + "," + (a.y + off) + " C" + mx + "," + (a.y + off) + " " + mx + "," + (b.y + off) + " " + b.x + "," + (b.y + off);
+  }
+
+  function build(s) {
+    var n = s.network;
+    var html = "";
+    html += node("cloud", "", CLOUD.x, CLOUD.y,
+      '<div class="pic"><svg><use href="#cloud"/></svg></div><div class="name">Internet</div><div class="note"></div><div class="sub">' + n.wan.ssid + "<br>" + n.wan.ip + "</div>");
+    html += node("hub", "hub", HUB.x, HUB.y,
+      '<div class="pic"><svg><use href="#pispot"/></svg></div><div class="name">' + n.hostname + '</div><div class="note"></div><div class="sub">' + n.ssid + "</div>");
+    n.clients.forEach(function (c, i) {
+      var pos = clientPos(i, n.clients.length);
+      var pic = c.kind === "radio" && i === 0
+        ? '<div class="pic photo-slot" title="picture set on the admin page"><svg><use href="#radio"/></svg><span>photo slot</span><span class="sig">' + c.signal + " dBm</span></div>"
+        : '<div class="pic"><svg><use href="#' + c.kind + '"/></svg><span class="sig">' + c.signal + " dBm</span></div>";
+      html += node("c" + i, c.active ? "active" : "", pos.x, pos.y,
+        pic + '<div class="name">' + c.name + '</div><div class="note">' + (c.active ? c.note : "") + '</div><div class="sub">' + c.ip + "</div>");
+    });
+    document.getElementById("nodes").innerHTML = html;
+    built = true;
+  }
+
+  function wires(s) {
+    var n = s.network;
+    var svg = "";
+    // WAN link
+    var wa = { x: CLOUD.x + 80, y: CLOUD.y - 20 }, wb = { x: HUB.x - 90, y: HUB.y - 20 };
+    if (n.wan.up) {
+      svg += '<path class="wire rx" style="stroke-width:' + width(n.wan.rxKbps) + '" d="' + wirePath(wa, wb, -7) + '"/>';
+      svg += '<path class="wire tx" style="stroke-width:' + width(n.wan.txKbps) + '" d="' + wirePath(wa, wb, 7) + '"/>';
+      svg += '<text class="wire-label" x="' + ((wa.x + wb.x) / 2) + '" y="' + (wa.y - 18) + '">↓ ' + MOCK.fmtKbps(n.wan.rxKbps) + "  ↑ " + MOCK.fmtKbps(n.wan.txKbps) + "</text>";
+    } else {
+      svg += '<path class="wire idle" style="stroke-width:3" d="' + wirePath(wa, wb, 0) + '"/>';
+    }
+    n.clients.forEach(function (c, i) {
+      var pos = clientPos(i, n.clients.length);
+      var a = { x: HUB.x + 90, y: HUB.y - 20 }, b = { x: pos.x - 78, y: pos.y - 26 };
+      if (c.active) {
+        svg += '<path class="wire rx" style="stroke-width:' + width(c.rxKbps) + '" d="' + wirePath(a, b, -6) + '"/>';
+        svg += '<path class="wire tx" style="stroke-width:' + width(c.txKbps) + '" d="' + wirePath(a, b, 6) + '"/>';
+        svg += '<text class="wire-label" x="' + ((a.x + b.x) / 2) + '" y="' + ((a.y + b.y) / 2 - 14) + '">↓ ' + MOCK.fmtKbps(c.rxKbps) + "  ↑ " + MOCK.fmtKbps(c.txKbps) + "</text>";
+      } else {
+        svg += '<path class="wire idle" style="stroke-width:2" d="' + wirePath(a, b, 0) + '"/>';
+      }
+    });
+    document.getElementById("wires").innerHTML = svg;
+  }
+
+  MOCK.subscribe(function (s) {
+    if (!built) build(s);
+    wires(s);
+    document.getElementById("clock").textContent = MOCK.hhmm(s.system.time);
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>pispot display</title>
+<link rel="stylesheet" href="mock.css">
+<style>
+  :root {
+    --bg: #0b0e12; --card: #151a21; --border: #263038; --fg: #e6ebf0; --muted: #86929f;
+    --ok: #3ccf6b; --warn: #e8a33d; --bad: #ff4d4d; --off: #566270; --accent: #5aa9ff;
+  }
+  .stage {
+    background: var(--bg); color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: grid; grid-template-columns: 1fr 400px; grid-template-rows: 56px 1fr; gap: 16px;
+    padding: 14px 18px; box-sizing: border-box; user-select: none;
+  }
+  header { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; padding: 0 6px; }
+  header h1 { margin: 0; font-size: 26px; font-weight: 600; color: var(--accent); letter-spacing: .3px; }
+  header .clock { font-size: 34px; font-weight: 300; font-variant-numeric: tabular-nums; }
+  header .right { display: flex; align-items: center; gap: 18px; color: var(--muted); font-size: 16px; }
+  header .pill { border: 1px solid var(--border); border-radius: 999px; padding: 3px 12px; }
+  header .pill.ok { color: var(--ok); border-color: var(--ok); }
+
+  .rows { display: grid; grid-template-rows: repeat(3, 1fr); gap: 14px; }
+  .src {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    display: grid; grid-template-columns: 120px 1fr 320px; align-items: center; padding: 0 22px 0 18px; gap: 10px;
+    position: relative; overflow: hidden;
+  }
+  .src .ico { width: 92px; height: 92px; color: var(--muted); }
+  .src.ok .ico { color: var(--fg); }
+  .src .name { font-size: 30px; font-weight: 600; letter-spacing: .5px; }
+  .src .state { font-size: 18px; color: var(--muted); margin-top: 2px; display: flex; align-items: center; gap: 8px; }
+  .src .state .bolt { width: 12px; height: 18px; color: var(--ok); }
+  .src .big { text-align: right; font-size: 96px; font-weight: 300; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -2px; }
+  .src .big small { font-size: 34px; font-weight: 400; color: var(--muted); margin-left: 6px; letter-spacing: 0; }
+  .src.ok .big { color: var(--ok); } .src.warn .big { color: var(--warn); } .src.bad .big { color: var(--bad); } .src.off .big { color: var(--off); }
+  .src.bad { border-color: var(--bad); animation: alert 1.2s ease-in-out infinite; }
+  @keyframes alert { 50% { box-shadow: inset 0 0 0 3px rgba(255,77,77,.5); } }
+  .src .meta { position: absolute; right: 22px; bottom: 10px; color: var(--muted); font-size: 15px; }
+
+  /* charging flow: chevrons along the bottom edge of a source that is feeding the battery */
+  .flow { position: absolute; left: 0; right: 0; bottom: 0; height: 6px; opacity: 0; }
+  .src.charging .flow { opacity: 1;
+    background: repeating-linear-gradient(90deg, var(--ok) 0 18px, transparent 18px 36px);
+    animation: march 0.9s linear infinite; }
+  @keyframes march { to { background-position: 36px 0; } }
+  .batt-fill { transition: width .5s; }
+
+  .side { display: grid; grid-template-rows: 1fr 1fr; gap: 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; position: relative; }
+  .card h2 { margin: 0 0 8px; font-size: 15px; font-weight: 600; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; }
+  .wx { display: grid; grid-template-columns: 96px 1fr; gap: 14px; align-items: center; }
+  .wx .ico { width: 96px; height: 96px; color: var(--fg); }
+  .wx .temp { font-size: 72px; font-weight: 300; line-height: 1; }
+  .wx .temp small { font-size: 28px; color: var(--muted); }
+  .wx .cond { font-size: 20px; margin-top: 2px; }
+  .wx .more { color: var(--muted); font-size: 15px; margin-top: 10px; line-height: 1.5; }
+  .wx .more b { color: var(--fg); font-weight: 500; }
+  .card .foot { position: absolute; left: 18px; right: 18px; bottom: 10px; color: var(--muted); font-size: 13px; display: flex; justify-content: space-between; }
+  .card .foot .pin { width: 11px; height: 16px; vertical-align: -3px; margin-right: 4px; }
+
+  .net .kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; font-size: 17px; }
+  .net .kv div:nth-child(odd) { color: var(--muted); }
+  .net .kv .num { font-variant-numeric: tabular-nums; }
+  .net .clients { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .net .chip { border: 1px solid var(--border); border-radius: 8px; padding: 4px 10px; font-size: 15px; display: flex; align-items: center; gap: 7px; }
+  .net .chip .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--off); }
+  .net .chip.active .dot { background: var(--ok); box-shadow: 0 0 6px var(--ok); animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+  .net .hint { position: absolute; right: 18px; top: 16px; color: var(--accent); font-size: 15px; font-weight: 600; letter-spacing: 2px; line-height: inherit; }
+  .net { cursor: pointer; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <header>
+    <h1>pispot</h1>
+    <div class="right">
+      <span class="pill ok" id="wan-pill">WAN up</span>
+      <span id="sysline">-</span>
+      <span class="clock" id="clock">--:--</span>
+    </div>
+  </header>
+
+  <div class="rows">
+    <div class="src" id="row-truck">
+      <svg class="ico"><use href="#truck"/></svg>
+      <div><div class="name">Truck</div><div class="state" id="truck-state">-</div></div>
+      <div class="big"><span id="truck-v">--.--</span><small>V</small></div>
+      <div class="meta" id="truck-meta"></div>
+      <div class="flow"></div>
+    </div>
+    <div class="src" id="row-solar">
+      <svg class="ico"><use href="#solar"/></svg>
+      <div><div class="name">Solar</div><div class="state" id="solar-state">-</div></div>
+      <div class="big"><span id="solar-v">--.--</span><small>V</small></div>
+      <div class="meta" id="solar-meta"></div>
+      <div class="flow"></div>
+    </div>
+    <div class="src" id="row-battery">
+      <svg class="ico" viewBox="0 0 64 36"><rect x="2" y="6" width="52" height="24" rx="4" fill="none" stroke="currentColor" stroke-width="3"/><rect x="56" y="13" width="6" height="10" rx="1.5" fill="currentColor"/><rect class="batt-fill" id="batt-fill" x="7" y="11" width="42" height="14" rx="2" fill="currentColor"/></svg>
+      <div><div class="name">Battery</div><div class="state" id="batt-state">-</div></div>
+      <div class="big"><span id="batt-v">--.--</span><small>V</small></div>
+      <div class="meta" id="batt-meta"></div>
+    </div>
+  </div>
+
+  <div class="side">
+    <div class="card">
+      <h2>Weather</h2>
+      <div class="wx">
+        <svg class="ico"><use id="wx-ico" href="#partly"/></svg>
+        <div>
+          <div class="temp"><span id="wx-temp">--</span><small>°F</small></div>
+          <div class="cond" id="wx-cond">-</div>
+          <div class="more" id="wx-more">-</div>
+        </div>
+      </div>
+      <div class="foot"><span><svg class="pin"><use href="#pin"/></svg><span id="wx-place">-</span></span><span id="wx-age">-</span></div>
+    </div>
+    <div class="card net" onclick="location.href='netmap.html'">
+      <h2>Network</h2>
+      <span class="hint">MORE ›</span>
+      <div class="kv">
+        <div>Hotspot</div><div id="n-ssid">-</div>
+        <div>WAN</div><div id="n-wan">-</div>
+        <div>Traffic</div><div class="num" id="n-traffic">-</div>
+      </div>
+      <div class="clients" id="n-clients"></div>
+      <div class="foot"><span id="n-lan">-</span><span id="n-count">-</span></div>
+    </div>
+  </div>
+</div>
+
+<script src="mock-data.js"></script>
+<script src="icons.js"></script>
+<script src="mock-stage.js"></script>
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  function setClass(el, cls) { el.className = "src " + cls; }
+
+  MOCK.subscribe(function (s) {
+    var p = s.power;
+    $("clock").textContent = MOCK.hhmm(s.system.time);
+    $("sysline").textContent = "CPU " + s.system.tempC.toFixed(0) + "°C · up " + s.system.uptime;
+
+    // truck
+    var t = $("row-truck"); var tc = MOCK.voltClass("supply", p);
+    setClass(t, tc + (p.present && p.charger.source === "supply" ? " charging" : ""));
+    if (!p.present) { $("truck-v").textContent = "--.--"; $("truck-state").textContent = "no power data"; $("truck-meta").textContent = ""; }
+    else if (!p.supply.connected) { $("truck-v").textContent = "--.--"; $("truck-state").textContent = "not connected"; $("truck-meta").textContent = ""; }
+    else {
+      $("truck-v").textContent = p.supply.volts.toFixed(2);
+      $("truck-state").innerHTML = p.supply.engine ? '<svg class="bolt"><use href="#bolt"/></svg>engine running' : "engine off";
+      $("truck-meta").textContent = tc === "warn" ? "below 12.99 V, charger won't use it" : (p.charger.source === "supply" ? "charging battery · " + p.charger.mode : "connected");
+    }
+    // solar
+    var so = $("row-solar"); var sc = MOCK.voltClass("solar", p);
+    setClass(so, sc + (p.present && p.charger.source === "solar" ? " charging" : ""));
+    if (!p.present) { $("solar-v").textContent = "--.--"; $("solar-state").textContent = "no power data"; $("solar-meta").textContent = ""; }
+    else if (!p.solar.connected) { $("solar-v").textContent = "--.--"; $("solar-state").textContent = "not connected"; $("solar-meta").textContent = ""; }
+    else {
+      $("solar-v").textContent = p.solar.volts.toFixed(1);
+      $("solar-state").textContent = p.charger.source === "solar" ? "charging battery" : (sc === "warn" ? "too little sun" : "standing by");
+      $("solar-meta").textContent = p.solar.watts ? p.solar.watts + " W" : "";
+    }
+    // battery
+    var b = $("row-battery"); var bc = MOCK.voltClass("battery", p);
+    setClass(b, bc);
+    if (!p.present) { $("batt-v").textContent = "--.--"; $("batt-state").textContent = "no power data"; $("batt-meta").textContent = ""; $("batt-fill").setAttribute("width", 0); }
+    else {
+      $("batt-v").textContent = p.battery.volts.toFixed(2);
+      var a = p.battery.amps;
+      $("batt-state").textContent = a > 0.05 ? "charging · " + a.toFixed(1) + " A in" : a < -0.05 ? "discharging · " + (-a).toFixed(1) + " A out" : "idle";
+      $("batt-meta").textContent = bc === "bad" ? "LOW BATTERY" : p.battery.soc + "% est.";
+      $("batt-fill").setAttribute("width", Math.round(42 * p.battery.soc / 100));
+    }
+
+    // weather
+    var w = s.weather;
+    $("wx-temp").textContent = w.tempF; $("wx-cond").textContent = w.cond;
+    $("wx-ico").setAttribute("href", "#" + w.icon);
+    $("wx-more").innerHTML = "wind <b>" + w.windMph + " mph " + w.windDir + "</b> · humidity <b>" + w.humidity + "%</b><br>sunrise <b>" + w.sunrise + "</b> · sunset <b>" + w.sunset + "</b>";
+    $("wx-place").textContent = w.place + (s.gps.fix ? " (GPS)" : "");
+    $("wx-age").textContent = w.age;
+
+    // network
+    var n = s.network;
+    $("n-ssid").textContent = n.ssid;
+    $("n-wan").textContent = n.wan.up ? n.wan.ssid + " · " + n.wan.ip : "down";
+    $("wan-pill").textContent = n.wan.up ? "WAN up" : "WAN down";
+    $("wan-pill").className = "pill " + (n.wan.up ? "ok" : "");
+    $("n-traffic").textContent = "↓ " + MOCK.fmtKbps(n.wan.rxKbps) + "  ↑ " + MOCK.fmtKbps(n.wan.txKbps);
+    $("n-clients").innerHTML = n.clients.map(function (c) {
+      return '<span class="chip' + (c.active ? " active" : "") + '"><span class="dot"></span>' + c.name + "</span>";
+    }).join("");
+    $("n-lan").textContent = n.lan.iface + " " + n.lan.ip;
+    $("n-count").textContent = n.clients.length + " clients, " + n.clients.filter(function (c) { return c.active; }).length + " active";
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>pispot DSKY</title>
+<link rel="stylesheet" href="mock.css">
+<style>
+  @font-face { font-family: "DSEG7"; src: url("fonts/DSEG7Classic-Regular.woff2") format("woff2"); }
+  @font-face { font-family: "DSEG7"; font-weight: bold; src: url("fonts/DSEG7Classic-Bold.woff2") format("woff2"); }
+  @font-face { font-family: "DSEG14"; src: url("fonts/DSEG14Classic-Regular.woff2") format("woff2"); }
+
+  :root {
+    --panel: #4a4d50;        /* grey anodised panel */
+    --panel-dark: #353739;
+    --bezel: #1b1c1e;
+    --glass: #050605;
+    --el: #b8ff5a;           /* electroluminescent green */
+    --el-dim: rgba(184, 255, 90, 0.08);
+    --bar: #3e7a2c;
+    --plate: #0f1a0c;
+    --key: #2c2e30;
+    --key-hi: #3a3d40;
+    --key-text: #f2f2f2;
+    --crib: #c9cdd1;
+  }
+  .stage {
+    background: radial-gradient(ellipse at 50% 30%, #585b5e, var(--panel) 60%, var(--panel-dark));
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    display: grid;
+    grid-template-columns: 560px 1fr;
+    gap: 24px;
+    padding: 20px 24px;
+    box-sizing: border-box;
+    user-select: none;
+  }
+
+  /* ---- display window ---- */
+  .dsky {
+    background: var(--bezel);
+    border-radius: 10px;
+    padding: 14px;
+    box-shadow: inset 0 2px 8px rgba(0,0,0,.8), 0 1px 0 rgba(255,255,255,.15);
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .glass {
+    background: var(--glass);
+    border-radius: 4px;
+    padding: 10px 14px;
+    position: relative;
+    flex: 1;
+    display: flex; flex-direction: column; justify-content: space-between;
+  }
+  .row { display: flex; align-items: center; justify-content: space-between; }
+  .cell { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .plate {
+    background: var(--plate); color: #d9e6cf;
+    font-size: 15px; letter-spacing: 2px; font-weight: 600;
+    padding: 3px 0; width: 100%; text-align: center; border-radius: 2px;
+  }
+  .plate.compacty { width: 118px; height: 76px; display: flex; align-items: center; justify-content: center;
+    line-height: 1.2; font-size: 15px; transition: background .08s, color .08s; }
+  .plate.compacty.lit { background: var(--el); color: #0a1a04; text-shadow: none; }
+
+  .digits {
+    font-family: "DSEG7", monospace; color: var(--el);
+    text-shadow: 0 0 6px rgba(184,255,90,.7), 0 0 18px rgba(184,255,90,.35);
+    position: relative; line-height: 1; display: inline-block;
+    white-space: pre;
+  }
+  .cell { text-align: center; }
+  /* DSEG's + is narrower than a digit; give the sign a digit-wide cell so the ghost lines up */
+  .digits .sign { display: inline-block; width: 0.816em; text-align: center; }
+  .digits .ghost { position: absolute; left: 0; top: 0; color: var(--el-dim); text-shadow: none; }
+  .digits .live { position: relative; }
+  .two { font-size: 54px; padding: 6px 0; }
+  .vn .digits, .cell .digits { display: inline-block; }
+  .reg { font-size: 70px; padding: 10px 0; }
+  .reg-row { display: flex; justify-content: flex-end; }
+  .bar { height: 6px; background: var(--bar); border-radius: 2px; margin: 2px 0; box-shadow: 0 0 6px rgba(62,122,44,.6); }
+  .vn { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .vn .cell { align-items: center; }
+  .vn .digits { text-align: center; }
+  .flash .live { animation: flash 0.6s steps(2, start) infinite; }
+  @keyframes flash { to { visibility: hidden; } }
+  .standby .glass { filter: brightness(.25); }
+
+  /* list mode (14-segment) */
+  .list { font-family: "DSEG14", monospace; font-size: 29px; color: var(--el);
+    text-shadow: 0 0 5px rgba(184,255,90,.6); line-height: 1.55; white-space: pre; letter-spacing: 1px; }
+  .list .ghost { position: absolute; left: 0; top: 0; color: var(--el-dim); text-shadow: none; }
+  .list .live { position: relative; }
+  .list { position: relative; }
+  .hidden { display: none !important; }
+
+  .crib {
+    color: var(--crib); font-size: 14px; line-height: 1.35; min-height: 40px;
+    display: flex; justify-content: space-between; gap: 12px; padding: 0 4px;
+  }
+  .crib b { color: #fff; }
+  .crib .mono { font-family: ui-monospace, Menlo, monospace; }
+
+  /* ---- keypad ---- */
+  .keypad { display: flex; flex-direction: column; justify-content: space-between; }
+  .keys {
+    display: grid; grid-template-columns: repeat(7, 82px); grid-auto-rows: 100px; gap: 8px;
+    justify-content: center; align-content: start; margin-top: 6px;
+  }
+  .key {
+    background: linear-gradient(#3a3d40, var(--key)); color: var(--key-text);
+    border: 2px solid #15161a; border-radius: 7px;
+    font: 600 20px/1.1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    letter-spacing: 1px; text-align: center; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 3px 0 #0f1012, inset 0 1px 0 rgba(255,255,255,.12);
+    cursor: pointer; white-space: pre-line;
+  }
+  .key.num { font-size: 30px; }
+  .key:active, .key.down { transform: translateY(2px); box-shadow: 0 1px 0 #0f1012; background: var(--key-hi); }
+  .key.blank { visibility: hidden; }
+  .status {
+    color: var(--crib); font-size: 14px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
+    padding: 0 8px 4px;
+  }
+  .status div { background: rgba(0,0,0,.25); padding: 8px 10px; border-radius: 6px; }
+  .status b { color: #fff; display: block; font-size: 12px; letter-spacing: 1.5px; margin-bottom: 2px; }
+  .status .mono { font-family: ui-monospace, Menlo, monospace; font-size: 15px; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <section class="dsky">
+    <div class="glass">
+      <div class="row">
+        <div class="plate compacty" id="compacty">COMP<br>ACTY</div>
+        <div class="cell" style="width:150px">
+          <div class="plate">PROG</div>
+          <div class="digits two"><span class="ghost">88</span><span class="live" id="prog">16</span></div>
+        </div>
+      </div>
+      <div class="vn">
+        <div class="cell" id="verb-cell">
+          <div class="plate">VERB</div>
+          <div class="digits two"><span class="ghost">88</span><span class="live" id="verb">16</span></div>
+        </div>
+        <div class="cell" id="noun-cell">
+          <div class="plate">NOUN</div>
+          <div class="digits two"><span class="ghost">88</span><span class="live" id="noun">30</span></div>
+        </div>
+      </div>
+      <div id="regs">
+        <div class="bar"></div>
+        <div class="reg-row"><div class="digits reg"><span class="ghost">888888</span><span class="live" id="r1"><span class="sign">+</span>00000</span></div></div>
+        <div class="bar"></div>
+        <div class="reg-row"><div class="digits reg"><span class="ghost">888888</span><span class="live" id="r2"><span class="sign">+</span>00000</span></div></div>
+        <div class="bar"></div>
+        <div class="reg-row"><div class="digits reg"><span class="ghost">888888</span><span class="live" id="r3"><span class="sign">+</span>00000</span></div></div>
+      </div>
+      <div id="listwrap" class="hidden">
+        <div class="bar"></div>
+        <div class="list"><span class="ghost" id="list-ghost"></span><span class="live" id="list"></span></div>
+      </div>
+    </div>
+    <div class="crib" id="crib"></div>
+  </section>
+
+  <section class="keypad">
+    <div class="keys" id="keys">
+      <div class="key" data-k="VERB">VERB</div>
+      <div class="key num" data-k="+">+</div>
+      <div class="key num" data-k="7">7</div>
+      <div class="key num" data-k="8">8</div>
+      <div class="key num" data-k="9">9</div>
+      <div class="key" data-k="CLR">CLR</div>
+      <div class="key" data-k="ENTR">ENTR</div>
+
+      <div class="key" data-k="NOUN">NOUN</div>
+      <div class="key num" data-k="-">−</div>
+      <div class="key num" data-k="4">4</div>
+      <div class="key num" data-k="5">5</div>
+      <div class="key num" data-k="6">6</div>
+      <div class="key" data-k="PRO">PRO</div>
+      <div class="key" data-k="RSET">RSET</div>
+
+      <div class="key blank"></div>
+      <div class="key num" data-k="0">0</div>
+      <div class="key num" data-k="1">1</div>
+      <div class="key num" data-k="2">2</div>
+      <div class="key num" data-k="3">3</div>
+      <div class="key" data-k="KEYREL">KEY
+REL</div>
+      <div class="key blank"></div>
+    </div>
+    <div class="status">
+      <div><b>NOUNS</b><span class="mono">30 power · 31 battery<br>40 network · 50 weather<br>60 gps</span></div>
+      <div><b>VERBS</b><span class="mono">16 monitor · 05 list<br>35 lamp test · 37 idle</span></div>
+      <div><b>CLOCK</b><span class="mono" id="clock">--:--</span><br><span id="net-line">-</span></div>
+    </div>
+  </section>
+</div>
+
+<script src="mock-data.js"></script>
+<script src="mock-stage.js"></script>
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+
+  // Fixed point like the real DSKY: sign + five digits, no decimal point.
+  function fixed(v, scale) {
+    var n = Math.round(v * scale);
+    var s = n < 0 ? "-" : "+";
+    var d = String(Math.min(99999, Math.abs(n)));
+    while (d.length < 5) d = "0" + d;
+    return s + d;
+  }
+  var BLANK = "!!!!!!"; // DSEG: '!' is an unlit, full-width cell
+
+  var chargerCode = { off: 0, trickle: 2, bulk: 1 };
+  var sourceCode = { none: 0, supply: 1, solar: 2 };
+
+  var modes = {
+    "1630": { prog: "16", crib: ["<b>R1</b> battery V", "<b>R2</b> truck V", "<b>R3</b> solar V", "<span class=mono>×0.01</span>"],
+      regs: function (s) { var p = s.power; if (!p.present) return null;
+        return [fixed(p.battery.volts, 100), p.supply.connected ? fixed(p.supply.volts, 100) : BLANK, p.solar.connected ? fixed(p.solar.volts, 100) : BLANK]; } },
+    "1631": { prog: "16", crib: ["<b>R1</b> battery A (+ charging)", "<b>R2</b> charge %", "<b>R3</b> source/mode", "<span class=mono>A ×0.01 · src 1 truck 2 solar · mode 1 bulk 2 trickle</span>"],
+      regs: function (s) { var p = s.power; if (!p.present) return null;
+        return [fixed(p.battery.amps, 100), fixed(p.battery.soc, 1), fixed(sourceCode[p.charger.source] * 10 + chargerCode[p.charger.mode], 1)]; } },
+    "1640": { prog: "16", crib: ["<b>R1</b> clients", "<b>R2</b> WAN rx kb/s", "<b>R3</b> WAN tx kb/s", ""],
+      regs: function (s) { var n = s.network; return [fixed(n.clients.length, 1), fixed(n.wan.rxKbps, 1), fixed(n.wan.txKbps, 1)]; } },
+    "0540": { prog: "05", list: true, crib: ["<b>client list</b>: name, rx kb/s, tx kb/s; dim = idle", "", "", ""] },
+    "1650": { prog: "16", crib: ["<b>R1</b> temp °F", "<b>R2</b> wind mph", "<b>R3</b> pressure inHg", "<span class=mono>×0.1 · ×0.1 · ×0.01</span>"],
+      regs: function (s) { var w = s.weather; return [fixed(w.tempF, 10), fixed(w.windMph, 10), fixed(w.pressureInHg, 100)]; } },
+    "1660": { prog: "16", crib: ["<b>R1</b> latitude", "<b>R2</b> longitude", "<b>R3</b> satellites", "<span class=mono>deg ×0.001</span>"],
+      regs: function (s) { var g = s.gps; if (!g.fix) return null; return [fixed(g.lat, 1000), fixed(g.lon, 1000), fixed(g.sats, 1)]; } },
+    "3700": { prog: "00", crib: ["<b>P00</b> idle", "", "", ""], regs: function () { return [BLANK, BLANK, BLANK]; } }
+  };
+
+  var preset = (location.search.match(/[?&]vn=(\d{4})/) || [0, "1630"])[1];
+  var st = { verb: preset.slice(0, 2), noun: preset.slice(2), entry: null, buf: "", standby: false, lamp: false };
+  var snapshot = MOCK.state;
+
+  function pad(s, n, ch) { s = String(s); ch = ch || " "; while (s.length < n) s = ch + s; return s.slice(-n); }
+  function padR(s, n, ch) { s = String(s); ch = ch || " "; while (s.length < n) s += ch; return s.slice(0, n); }
+  function seg14(s) { return s.toUpperCase().replace(/[^A-Z0-9 \-]/g, ""); }
+
+  function render() {
+    var key = st.verb + st.noun;
+    var m = modes[key];
+    $("verb").textContent = st.verb;
+    $("noun").textContent = st.noun;
+    if (st.lamp) {
+      $("prog").textContent = "88"; $("verb").textContent = "88"; $("noun").textContent = "88";
+      ["r1", "r2", "r3"].forEach(function (id) { $(id).innerHTML = '<span class="sign">8</span>88888'; });
+      $("regs").classList.remove("hidden"); $("listwrap").classList.add("hidden");
+      $("crib").innerHTML = "<span>lamp test</span>";
+      return;
+    }
+    if (!m) {
+      // Operator error: nothing sensible to show, keep the old registers.
+      return;
+    }
+    $("prog").textContent = m.prog;
+    $("crib").innerHTML = m.crib.map(function (c) { return "<span>" + c + "</span>"; }).join("");
+    if (m.list) {
+      $("regs").classList.add("hidden"); $("listwrap").classList.remove("hidden");
+      var lines = snapshot.network.clients.slice(0, 5).map(function (c) {
+        var name = padR(seg14(c.name).replace(/ /g, "!"), 13, "!");
+        return name + pad(c.active ? c.rxKbps : "", 6, "!") + pad(c.active ? c.txKbps : "", 5, "!");
+      });
+      while (lines.length < 5) lines.push(padR("", 24, "!"));
+      $("list").textContent = lines.join("\n");
+      $("list-ghost").textContent = lines.map(function () { return "~~~~~~~~~~~~~~~~~~~~~~~~"; }).join("\n");
+    } else {
+      $("regs").classList.remove("hidden"); $("listwrap").classList.add("hidden");
+      var regs = m.regs(snapshot);
+      if (!regs) regs = [BLANK, BLANK, BLANK];
+      [["r1", regs[0]], ["r2", regs[1]], ["r3", regs[2]]].forEach(function (pair) {
+        var v = pair[1];
+        $(pair[0]).innerHTML = v === BLANK ? BLANK : '<span class="sign">' + v[0] + "</span>" + v.slice(1);
+      });
+    }
+  }
+
+  function oprErr() {
+    var cells = [$("verb-cell"), $("noun-cell")];
+    cells.forEach(function (c) { c.classList.add("flash"); });
+    setTimeout(function () { cells.forEach(function (c) { c.classList.remove("flash"); }); }, 1800);
+  }
+
+  function press(k) {
+    var el = document.querySelector('.key[data-k="' + k + '"]');
+    if (el) { el.classList.add("down"); setTimeout(function () { el.classList.remove("down"); }, 120); }
+    if (k === "VERB" || k === "NOUN") { st.entry = k.toLowerCase(); st.buf = ""; $("verb-cell").classList.toggle("flash", k === "VERB"); $("noun-cell").classList.toggle("flash", k === "NOUN"); return; }
+    if (/^[0-9]$/.test(k)) {
+      if (!st.entry) return;
+      st.buf = (st.buf + k).slice(-2);
+      $(st.entry).textContent = pad(st.buf, 2).replace(/ /g, "!");
+      return;
+    }
+    if (k === "CLR") { st.buf = ""; if (st.entry) $(st.entry).textContent = "!!"; return; }
+    if (k === "ENTR") {
+      $("verb-cell").classList.remove("flash"); $("noun-cell").classList.remove("flash");
+      if (st.entry && st.buf.length === 2) st[st.entry] = st.buf;
+      st.entry = null; st.buf = "";
+      if (st.verb === "35") { st.lamp = true; render(); setTimeout(function () { st.lamp = false; st.verb = "16"; render(); }, 2000); return; }
+      if (!modes[st.verb + st.noun]) { oprErr(); }
+      render(); return;
+    }
+    if (k === "RSET") { st.verb = "16"; st.noun = "30"; st.entry = null; st.buf = ""; st.standby = false; $("stage").classList.remove("standby"); render(); return; }
+    if (k === "PRO") { st.standby = !st.standby; $("stage").classList.toggle("standby", st.standby); return; }
+    if (k === "KEYREL") { st.entry = null; st.buf = ""; $("verb-cell").classList.remove("flash"); $("noun-cell").classList.remove("flash"); render(); return; }
+  }
+
+  $("keys").addEventListener("click", function (e) {
+    var k = e.target.closest(".key");
+    if (k && k.dataset.k) press(k.dataset.k);
+  });
+  document.addEventListener("keydown", function (e) {
+    var map = { Enter: "ENTR", Backspace: "CLR", v: "VERB", n: "NOUN", r: "RSET", p: "PRO", k: "KEYREL" };
+    if (map[e.key]) press(map[e.key]);
+    else if (/^[0-9]$/.test(e.key) && st.entry) press(e.key);
+  });
+
+  MOCK.subscribe(function (s) {
+    snapshot = s;
+    var ca = $("compacty");
+    ca.classList.add("lit"); setTimeout(function () { ca.classList.remove("lit"); }, 160);
+    $("clock").textContent = MOCK.hhmm(s.system.time);
+    $("net-line").textContent = s.network.clients.filter(function (c) { return c.active; }).length + " active · " + s.network.ssid;
+    if (!st.entry && !st.lamp) render();
+  });
+})();
+</script>
+<script src="icons.js"></script>
+</body>
+</html>
