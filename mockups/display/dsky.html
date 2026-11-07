@@ -122,6 +122,7 @@
   }
   .status div { background: rgba(0,0,0,.25); padding: 8px 10px; border-radius: 6px; }
   .status b { color: #fff; display: block; font-size: 12px; letter-spacing: 1.5px; margin-bottom: 2px; }
+  .status .wide { grid-column: 1 / -1; }
   .status .mono { font-family: ui-monospace, Menlo, monospace; font-size: 15px; }
 </style>
 </head>
@@ -193,6 +194,7 @@ REL</div>
       <div><b>NOUNS</b><span class="mono">30 power · 31 battery<br>40 network · 50 weather<br>60 gps</span></div>
       <div><b>VERBS</b><span class="mono">16 monitor · 05 list<br>35 lamp test · 37 idle</span></div>
       <div><b>CLOCK</b><span class="mono" id="clock">--:--</span><br><span id="net-line">-</span></div>
+      <div class="wide"><b>STATE CODES (N31 R3)</b><span class="mono">0 testing · 1 ps off · 2 chrg off · 3 no bat · 4 bad bat · 5 charged · 6 charging · 7 trickle · 8 suspend · 9 bad temp · 10 mppt · 11 mppt-t</span></div>
     </div>
   </section>
 </div>
@@ -214,16 +216,17 @@ REL</div>
   }
   var BLANK = "!!!!!!"; // DSEG: '!' is an unlit, full-width cell
 
-  var chargerCode = { off: 0, trickle: 2, bulk: 1 };
-  var sourceCode = { none: 0, supply: 1, solar: 2 };
+  // Device state words as the manual lists them, numbered for register 3 of noun 31.
+  var states = ["Testing", "PS Off", "Chrg Off", "No Bat", "Bad Bat", "Charged", "Charging", "Trickle", "Suspend", "Bad temp", "MPPT", "MPPT-T"];
+  function stateCode(st) { var i = states.indexOf(st.replace(/^Bad Bat.*/, "Bad Bat")); return i < 0 ? 99 : i; }
 
   var modes = {
     "1630": { prog: "16", crib: ["<b>R1</b> battery V", "<b>R2</b> truck V", "<b>R3</b> solar V", "<span class=mono>×0.01</span>"],
       regs: function (s) { var p = s.power; if (!p.present) return null;
-        return [fixed(p.battery.volts, 100), p.supply.connected ? fixed(p.supply.volts, 100) : BLANK, p.solar.connected ? fixed(p.solar.volts, 100) : BLANK]; } },
-    "1631": { prog: "16", crib: ["<b>R1</b> battery A (+ charging)", "<b>R2</b> charge %", "<b>R3</b> source/mode", "<span class=mono>A ×0.01 · src 1 truck 2 solar · mode 1 bulk 2 trickle</span>"],
+        return [fixed(p.batt, 100), fixed(p.ps, 100), fixed(p.sol, 100)]; } },
+    "1631": { prog: "16", crib: ["<b>R1</b> charge A", "<b>R2</b> min in state", "<b>R3</b> state code", "<span class=mono>×0.01 · codes on card</span>"],
       regs: function (s) { var p = s.power; if (!p.present) return null;
-        return [fixed(p.battery.amps, 100), fixed(p.battery.soc, 1), fixed(sourceCode[p.charger.source] * 10 + chargerCode[p.charger.mode], 1)]; } },
+        return [fixed(p.amps, 100), fixed(p.minutes, 1), fixed(stateCode(p.state), 1)]; } },
     "1640": { prog: "16", crib: ["<b>R1</b> clients", "<b>R2</b> WAN rx kb/s", "<b>R3</b> WAN tx kb/s", ""],
       regs: function (s) { var n = s.network; return [fixed(n.clients.length, 1), fixed(n.wan.rxKbps, 1), fixed(n.wan.txKbps, 1)]; } },
     "0540": { prog: "05", list: true, crib: ["<b>client list</b>: name, rx kb/s, tx kb/s; dim = idle", "", "", ""] },

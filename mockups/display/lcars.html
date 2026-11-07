@@ -35,18 +35,30 @@
   .bot-bar .foot { position: absolute; left: 70px; right: 20px; top: 28px; display: flex; justify-content: space-between; font-size: 20px; color: var(--pale); }
 
   /* content */
-  .content { grid-column: 2; grid-row: 2; padding: 10px 0 0 18px; display: grid; grid-template-columns: 1.15fr 1fr; gap: 18px; }
+  .content { grid-column: 2; grid-row: 2; padding: 10px 0 0 18px; }
+  .view { display: grid; grid-template-columns: 1.15fr minmax(0, 1fr); gap: 18px; }
+  .view[hidden] { display: none; }
+  .side .blk { opacity: .45; transition: opacity .15s; }
+  .side .blk.on, .side .blk#blk-clock { opacity: 1; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 18px; font-size: 22px; color: var(--peach); }
+  .kv div:nth-child(odd) { color: var(--blue); }
+  .kv .ok { color: var(--pale); } .kv .warn { color: var(--yellow); } .kv .bad { color: var(--red); }
+  .wx.big .t { font-size: 120px; }
+  .wx.big .d { font-size: 24px; }
+  .grid { font-size: 110px; line-height: 1; color: var(--pale); font-weight: 300; margin-bottom: 16px; }
+  .stage.dim .frame { filter: brightness(.25); }
   .block h2 { margin: 0 0 6px; font-size: 20px; color: var(--lavender); font-weight: 400; letter-spacing: 2px; border-bottom: 2px solid var(--violet); padding-bottom: 2px; }
   .readouts { display: grid; grid-template-columns: 1fr; gap: 10px; }
-  .ro { display: grid; grid-template-columns: 170px 1fr 120px; align-items: baseline; gap: 10px; }
+  .ro { display: grid; grid-template-columns: 170px 1fr 200px; align-items: start; gap: 10px; }
+  .ro .lbl { align-self: center; }
   .ro .lbl { font-size: 24px; color: var(--peach); }
   .ro .lbl small { display: block; font-size: 15px; color: var(--blue); }
   .ro .val { font-size: 86px; line-height: .95; text-align: right; font-weight: 300; font-variant-numeric: tabular-nums; color: var(--pale); }
-  .ro .val small { font-size: 28px; margin-left: 4px; color: var(--peach); }
-  .ro .state { font-size: 17px; color: var(--tan); text-align: left; line-height: 1.2; }
-  .ro.ok .val { color: var(--pale); } .ro.warn .val { color: var(--yellow); } .ro.bad .val { color: var(--red); animation: blink 1s steps(2, start) infinite; } .ro.off .val { color: #665; }
+  .ro .val small { font-size: 28px; margin-left: 4px; color: inherit; }
+  .ro .state { font-size: 20px; color: var(--tan); text-align: left; line-height: 1.25; padding-top: 12px; white-space: nowrap; }
+  .ro.ok .val { color: var(--pale); } .ro.warn .val { color: var(--yellow); } .ro.bad .val { color: var(--red); } .ro.off .val { color: #665; } .ro.na .val { color: var(--peach); }
+  .raw { font: 16px/1.5 ui-monospace, Menlo, monospace; color: var(--peach); text-transform: none; white-space: pre-wrap; overflow-wrap: anywhere; background: #111; padding: 10px 12px; border-radius: 6px; }
   @keyframes blink { to { visibility: hidden; } }
-  .ro.charging .state::before { content: "▸▸ "; color: var(--pale); animation: blink 1s steps(2, start) infinite; }
 
   table { width: 100%; border-collapse: collapse; font-size: 20px; color: var(--peach); }
   td, th { padding: 4px 6px; text-align: left; white-space: nowrap; }
@@ -61,7 +73,7 @@
   .wx .d { font-size: 19px; color: var(--peach); line-height: 1.35; }
   .wx .d span { color: var(--blue); }
   .alert { position: absolute; right: 24px; top: 36px; font-size: 22px; color: var(--red); display: none; }
-  .frame.redalert .alert { display: block; animation: blink 1s steps(2, start) infinite; }
+  .frame.redalert .alert { display: block; }
   .frame.redalert .elbow-top, .frame.redalert .top-bar .bar, .frame.redalert .elbow-top::after { background: var(--red); }
 </style>
 </head>
@@ -70,35 +82,73 @@
   <div class="frame" id="frame">
     <div class="elbow-top"></div>
     <div class="top-bar">
-      <div class="title">pispot · power management</div>
+      <div class="title">pispot · <span id="l-title">power management</span></div>
       <div class="code" id="code">LCARS 47-2109</div>
       <div class="bar"><div class="seg" style="left:62%;width:4px;background:#000"></div><div class="seg" style="left:80%;width:4px;background:#000"></div><div class="seg" style="left:62.4%;width:17.3%;background:var(--lavender)"></div></div>
       <div class="alert">battery low</div>
     </div>
 
     <div class="side">
-      <div class="blk" style="background:var(--peach)">power</div>
-      <div class="blk" style="background:var(--lavender)">network</div>
-      <div class="blk" style="background:var(--blue)">weather</div>
-      <div class="blk" style="background:var(--violet)">nav</div>
-      <div class="blk" style="background:var(--tan)"><span id="side-clock">--:--</span></div>
+      <div class="blk on" data-view="power" style="background:var(--peach)">power</div>
+      <div class="blk" data-view="network" style="background:var(--lavender)">network</div>
+      <div class="blk" data-view="weather" style="background:var(--blue)">weather</div>
+      <div class="blk" data-view="nav" style="background:var(--violet)">nav</div>
+      <div class="blk" id="blk-clock" style="background:var(--tan)"><span id="side-clock">--:--</span></div>
     </div>
 
     <div class="content">
-      <div class="block">
-        <h2>power bus status</h2>
-        <div class="readouts">
-          <div class="ro" id="l-truck"><div class="lbl">truck<small id="l-truck-sub">-</small></div><div class="val"><span id="l-truck-v">--.--</span><small>V</small></div><div class="state" id="l-truck-s">-</div></div>
-          <div class="ro" id="l-solar"><div class="lbl">solar<small id="l-solar-sub">-</small></div><div class="val"><span id="l-solar-v">--.--</span><small>V</small></div><div class="state" id="l-solar-s">-</div></div>
-          <div class="ro" id="l-batt"><div class="lbl">battery<small id="l-batt-sub">-</small></div><div class="val"><span id="l-batt-v">--.--</span><small>V</small></div><div class="state" id="l-batt-s">-</div></div>
+      <div class="view" data-view="power">
+        <div class="block">
+          <h2>power bus status</h2>
+          <div class="readouts">
+            <div class="ro" id="l-truck"><div class="lbl">truck<small id="l-truck-sub">-</small></div><div class="val"><span id="l-truck-v">--.--</span><small>V</small></div><div class="state" id="l-truck-s">-</div></div>
+            <div class="ro" id="l-solar"><div class="lbl">solar<small id="l-solar-sub">-</small></div><div class="val"><span id="l-solar-v">--.--</span><small>V</small></div><div class="state" id="l-solar-s">-</div></div>
+            <div class="ro" id="l-batt"><div class="lbl">battery<small id="l-batt-sub">-</small></div><div class="val"><span id="l-batt-v">--.--</span><small>V</small></div><div class="state" id="l-batt-s">-</div></div>
+          </div>
+        </div>
+        <div class="block">
+          <h2>charger</h2>
+          <div class="kv" id="l-charger"></div>
+          <h2 style="margin-top:14px">status line</h2>
+          <div class="raw" id="l-raw">-</div>
         </div>
       </div>
-      <div class="block">
-        <h2>hotspot clients · <span id="l-count">-</span></h2>
-        <table><thead><tr><th>host</th><th>status</th><th class="num">rx kb/s</th><th class="num">tx kb/s</th></tr></thead><tbody id="l-clients"></tbody></table>
-        <h2 style="margin-top:14px">environment</h2>
-        <div class="wx"><div class="t"><span id="l-temp">--</span><small>°F</small></div>
-          <div class="d" id="l-wx">-</div></div>
+
+      <div class="view" data-view="network" hidden>
+        <div class="block">
+          <h2>hotspot clients · <span id="l-count">-</span></h2>
+          <table><thead><tr><th>host</th><th>status</th><th>address</th><th class="num">signal</th><th class="num">rx kb/s</th><th class="num">tx kb/s</th></tr></thead><tbody id="l-clients"></tbody></table>
+        </div>
+        <div class="block">
+          <h2>interfaces</h2>
+          <div class="kv" id="l-ifaces"></div>
+          <h2 style="margin-top:14px">uplink</h2>
+          <div class="kv" id="l-uplink"></div>
+        </div>
+      </div>
+
+      <div class="view" data-view="weather" hidden>
+        <div class="block">
+          <h2>environment</h2>
+          <div class="wx big"><div class="t"><span id="l-temp">--</span><small>°F</small></div>
+            <div class="d" id="l-wx">-</div></div>
+        </div>
+        <div class="block">
+          <h2>conditions</h2>
+          <div class="kv" id="l-wxkv"></div>
+        </div>
+      </div>
+
+      <div class="view" data-view="nav" hidden>
+        <div class="block">
+          <h2>position</h2>
+          <div class="kv" id="l-pos"></div>
+        </div>
+        <div class="block">
+          <h2>grid square</h2>
+          <div class="grid" id="l-grid">----</div>
+          <div class="kv" id="l-time"></div>
+        </div>
       </div>
     </div>
 
@@ -114,38 +164,87 @@
 (function () {
   "use strict";
   var $ = function (id) { return document.getElementById(id); };
+  var titles = { power: "power management", network: "network operations", weather: "environmental", nav: "navigation" };
+  function show(view) {
+    document.querySelectorAll(".view").forEach(function (v) { v.hidden = v.dataset.view !== view; });
+    document.querySelectorAll(".side .blk[data-view]").forEach(function (b) { b.classList.toggle("on", b.dataset.view === view); });
+    $("l-title").textContent = titles[view];
+  }
+  document.querySelectorAll(".side .blk[data-view]").forEach(function (b) {
+    b.addEventListener("click", function () { show(b.dataset.view); });
+  });
+  $("blk-clock").addEventListener("click", function () { document.querySelector(".stage").classList.toggle("dim"); });
+  var preset = (location.search.match(/[?&]view=(power|network|weather|nav)/) || [0, "power"])[1];
+  show(preset);
+
+  // Maidenhead grid locator from lat/lon, six characters.
+  function maidenhead(lat, lon) {
+    var A = "ABCDEFGHIJKLMNOPQRSTUVWX".split("");
+    lon += 180; lat += 90;
+    var g = A[Math.floor(lon / 20)] + A[Math.floor(lat / 10)];
+    g += Math.floor((lon % 20) / 2) + "" + Math.floor(lat % 10);
+    g += A[Math.floor(((lon % 2) * 60) / 5)].toLowerCase() + A[Math.floor(((lat % 1) * 60) / 2.5)].toLowerCase();
+    return g;
+  }
+  function kv(pairs) { return pairs.map(function (p) { return "<div>" + p[0] + "</div><div" + (p[2] ? ' class="' + p[2] + '"' : "") + ">" + p[1] + "</div>"; }).join(""); }
+
   MOCK.subscribe(function (s) {
     var p = s.power;
     $("side-clock").textContent = MOCK.hhmm(s.system.time);
 
+    // Charger panel: the device's own words and numbers, plus the one setting the UI relies on.
+    if (p.present) {
+      $("l-charger").innerHTML = kv([
+        ["state", p.state],
+        ["charge current", p.amps.toFixed(2) + " A"],
+        ["in this state", p.minutes + " min"],
+        ["min supply", s.settings.minSupply.toFixed(2) + " V (setting)"],
+        ["temp probe", "not fitted"]
+      ]);
+      $("l-raw").textContent = p.raw;
+    } else {
+      $("l-charger").innerHTML = kv([["controller", "not connected", "bad"]]);
+      $("l-raw").textContent = "no data";
+    }
+
     var tc = MOCK.voltClass("supply", p);
-    $("l-truck").className = "ro " + tc + (p.present && p.charger.source === "supply" ? " charging" : "");
-    $("l-truck-v").textContent = p.present && p.supply.connected ? p.supply.volts.toFixed(2) : "--.--";
-    $("l-truck-sub").textContent = !p.present ? "no data" : !p.supply.connected ? "offline" : p.supply.engine ? "engine running" : "engine off";
-    $("l-truck-s").textContent = !p.present || !p.supply.connected ? "" : tc === "warn" ? "below charge minimum" : p.charger.source === "supply" ? "feeding battery · " + p.charger.mode : "nominal";
+    $("l-truck").className = "ro " + tc;
+    $("l-truck-v").textContent = p.present ? p.ps.toFixed(2) : "--.--";
+    $("l-truck-sub").textContent = p.present ? "" : "no data";
+    $("l-truck-s").textContent = tc === "ok" ? "nominal" : tc === "warn" ? "undervolt" : "";
 
     var sc = MOCK.voltClass("solar", p);
-    $("l-solar").className = "ro " + sc + (p.present && p.charger.source === "solar" ? " charging" : "");
-    $("l-solar-v").textContent = p.present && p.solar.connected ? p.solar.volts.toFixed(1) : "--.--";
-    $("l-solar-sub").textContent = !p.present ? "no data" : !p.solar.connected ? "offline" : p.solar.watts ? p.solar.watts + " W" : "standby";
-    $("l-solar-s").textContent = !p.present || !p.solar.connected ? "" : p.charger.source === "solar" ? "feeding battery" : sc === "warn" ? "insufficient light" : "nominal";
+    $("l-solar").className = "ro " + sc;
+    $("l-solar-v").textContent = p.present ? p.sol.toFixed(2) : "--.--";
+    $("l-solar-sub").textContent = p.present ? "" : "no data";
+    $("l-solar-s").textContent = sc === "ok" ? "nominal" : sc === "warn" ? "undervolt" : "";
 
     var bc = MOCK.voltClass("battery", p);
     $("l-batt").className = "ro " + bc;
-    $("l-batt-v").textContent = p.present ? p.battery.volts.toFixed(2) : "--.--";
-    $("l-batt-sub").textContent = p.present ? p.battery.soc + "% est" : "no data";
-    $("l-batt-s").textContent = !p.present ? "" : p.battery.amps > 0.05 ? "charging " + p.battery.amps.toFixed(1) + " A" : p.battery.amps < -0.05 ? "discharging " + (-p.battery.amps).toFixed(1) + " A" : "idle";
+    $("l-batt-v").textContent = p.present ? p.batt.toFixed(2) : "--.--";
+    $("l-batt-sub").textContent = p.present ? "" : "no data";
+    $("l-batt-s").textContent = MOCK.charging(p) ? p.amps.toFixed(2) + " A" : "";
     $("frame").classList.toggle("redalert", bc === "bad");
 
     var n = s.network;
     $("l-count").textContent = n.clients.length + " on " + n.ssid;
     $("l-clients").innerHTML = n.clients.map(function (c) {
       return "<tr" + (c.active ? "" : ' class="idle"') + "><td><span class=dot></span>" + c.name + "</td><td>" + (c.active ? (c.note || "active") : "idle") +
-        '</td><td class="num">' + (c.active ? c.rxKbps : "—") + '</td><td class="num">' + (c.active ? c.txKbps : "—") + "</td></tr>";
+        "</td><td>" + c.ip + '</td><td class="num">' + c.signal + ' dBm</td><td class="num">' + (c.active ? c.rxKbps : "—") + '</td><td class="num">' + (c.active ? c.txKbps : "—") + "</td></tr>";
     }).join("");
+    $("l-ifaces").innerHTML = kv(n.interfaces.map(function (i) {
+      return [i.role + " · " + i.name, i.state, i.state === "up" ? "ok" : i.state === "down" ? "warn" : "bad"];
+    }));
+    $("l-uplink").innerHTML = kv(n.wan.up ? [["network", n.wan.ssid], ["address", n.wan.ip], ["signal", n.wan.signal + " dBm"], ["rx", MOCK.fmtKbps(n.wan.rxKbps)], ["tx", MOCK.fmtKbps(n.wan.txKbps)]] : [["uplink", "down", "bad"]]);
     var w = s.weather;
     $("l-temp").textContent = w.tempF;
     $("l-wx").innerHTML = w.cond + "<br><span>wind</span> " + w.windMph + " mph " + w.windDir + " · <span>hum</span> " + w.humidity + "%<br><span>sunset</span> " + w.sunset + " · " + w.place;
+    $("l-wxkv").innerHTML = kv([["wind", w.windMph + " mph " + w.windDir], ["humidity", w.humidity + "%"], ["pressure", w.pressureInHg.toFixed(2) + " inHg"],
+      ["sunrise", w.sunrise], ["sunset", w.sunset], ["location", w.place + (s.gps.fix ? " (gps)" : "")], ["updated", w.age]]);
+    var g = s.gps;
+    $("l-pos").innerHTML = kv(g.fix ? [["latitude", g.lat.toFixed(5) + "°"], ["longitude", g.lon.toFixed(5) + "°"], ["altitude", g.altFt + " ft"], ["satellites", g.sats], ["fix", "3d", "ok"]] : [["fix", "none", "bad"]]);
+    $("l-grid").textContent = g.fix ? maidenhead(g.lat, g.lon) : "----";
+    $("l-time").innerHTML = kv([["local", s.system.time.toTimeString().slice(0, 8)], ["utc", s.system.time.toISOString().slice(11, 19) + "z"]]);
     $("l-wan").textContent = "wan " + (n.wan.up ? n.wan.ssid + " ↓" + MOCK.fmtKbps(n.wan.rxKbps) + " ↑" + MOCK.fmtKbps(n.wan.txKbps) : "down");
     $("l-gps").textContent = s.gps.fix ? "gps " + s.gps.lat.toFixed(3) + " " + s.gps.lon.toFixed(3) + " · " + s.gps.sats + " sats" : "gps no fix";
     $("l-sys").textContent = "cpu " + s.system.tempC.toFixed(0) + "°C · up " + s.system.uptime;

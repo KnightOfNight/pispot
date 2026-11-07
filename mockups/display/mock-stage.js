@@ -22,7 +22,7 @@
     if (window.MOCK) {
       MOCK.subscribe(function (s) {
         var el = document.getElementById("mock-scenario");
-        if (el) el.textContent = "scenario " + s.scenario.key + ": " + s.scenario.name + " (keys 1-5)";
+        if (el) el.textContent = "scenario " + s.scenario.key + ": " + s.scenario.name + " (keys 1-5, w = WAN state)";
       });
     }
   });

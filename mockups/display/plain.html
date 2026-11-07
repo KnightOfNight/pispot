@@ -19,8 +19,12 @@
   header h1 { margin: 0; font-size: 26px; font-weight: 600; color: var(--accent); letter-spacing: .3px; }
   header .clock { font-size: 34px; font-weight: 300; font-variant-numeric: tabular-nums; }
   header .right { display: flex; align-items: center; gap: 18px; color: var(--muted); font-size: 16px; }
-  header .pill { border: 1px solid var(--border); border-radius: 999px; padding: 3px 12px; }
-  header .pill.ok { color: var(--ok); border-color: var(--ok); }
+  header .pills { display: flex; gap: 8px; }
+  header .pill { border: 1px solid var(--border); border-radius: 999px; padding: 3px 12px; font-variant-numeric: tabular-nums; }
+  header .pill b { font-weight: 600; margin-right: 5px; }
+  header .pill.up { color: var(--ok); border-color: var(--ok); }
+  header .pill.down { color: var(--warn); border-color: var(--warn); }
+  header .pill.missing { color: var(--bad); border-color: var(--bad); border-style: dashed; }
 
   .rows { display: grid; grid-template-rows: repeat(3, 1fr); gap: 14px; }
   .src {
@@ -35,8 +39,8 @@
   .src .state .bolt { width: 12px; height: 18px; color: var(--ok); }
   .src .big { text-align: right; font-size: 96px; font-weight: 300; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -2px; }
   .src .big small { font-size: 34px; font-weight: 400; color: var(--muted); margin-left: 6px; letter-spacing: 0; }
-  .src.ok .big { color: var(--ok); } .src.warn .big { color: var(--warn); } .src.bad .big { color: var(--bad); } .src.off .big { color: var(--off); }
-  .src.bad { border-color: var(--bad); animation: alert 1.2s ease-in-out infinite; }
+  .src.ok .big { color: var(--ok); } .src.warn .big { color: var(--warn); } .src.bad .big { color: var(--bad); } .src.off .big { color: var(--off); } .src.na .big { color: var(--fg); }
+  #row-battery.bad { border-color: var(--bad); }
   @keyframes alert { 50% { box-shadow: inset 0 0 0 3px rgba(255,77,77,.5); } }
   .src .meta { position: absolute; right: 22px; bottom: 10px; color: var(--muted); font-size: 15px; }
 
@@ -69,8 +73,8 @@
   .net .chip .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--off); }
   .net .chip.active .dot { background: var(--ok); box-shadow: 0 0 6px var(--ok); animation: pulse 1.4s ease-in-out infinite; }
   @keyframes pulse { 50% { opacity: .35; } }
-  .net .hint { position: absolute; right: 18px; top: 16px; color: var(--accent); font-size: 15px; font-weight: 600; letter-spacing: 2px; line-height: inherit; }
-  .net { cursor: pointer; }
+  .net .hint { position: absolute; right: 18px; top: 10px; color: var(--accent); font-size: 15px; font-weight: 600; letter-spacing: 2px; line-height: 1.2; border: 0.1em solid currentColor; border-radius: 0.4em; padding: 0.3em 0.5em 0.3em 0.65em; }
+  .net .hint { cursor: pointer; }
 </style>
 </head>
 <body>
@@ -78,7 +82,7 @@
   <header>
     <h1>pispot</h1>
     <div class="right">
-      <span class="pill ok" id="wan-pill">WAN up</span>
+      <span class="pills" id="iface-pills"></span>
       <span id="sysline">-</span>
       <span class="clock" id="clock">--:--</span>
     </div>
@@ -100,7 +104,7 @@
       <div class="flow"></div>
     </div>
     <div class="src" id="row-battery">
-      <svg class="ico" viewBox="0 0 64 36"><rect x="2" y="6" width="52" height="24" rx="4" fill="none" stroke="currentColor" stroke-width="3"/><rect x="56" y="13" width="6" height="10" rx="1.5" fill="currentColor"/><rect class="batt-fill" id="batt-fill" x="7" y="11" width="42" height="14" rx="2" fill="currentColor"/></svg>
+      <svg class="ico" viewBox="0 0 64 36"><rect x="2" y="6" width="52" height="24" rx="4" fill="none" stroke="currentColor" stroke-width="3"/><rect x="56" y="13" width="6" height="10" rx="1.5" fill="currentColor"/></svg>
       <div><div class="name">Battery</div><div class="state" id="batt-state">-</div></div>
       <div class="big"><span id="batt-v">--.--</span><small>V</small></div>
       <div class="meta" id="batt-meta"></div>
@@ -120,9 +124,9 @@
       </div>
       <div class="foot"><span><svg class="pin"><use href="#pin"/></svg><span id="wx-place">-</span></span><span id="wx-age">-</span></div>
     </div>
-    <div class="card net" onclick="location.href='netmap.html'">
+    <div class="card net">
       <h2>Network</h2>
-      <span class="hint">MORE ›</span>
+      <span class="hint" onclick="location.href='netmap.html'">MORE ›</span>
       <div class="kv">
         <div>Hotspot</div><div id="n-ssid">-</div>
         <div>WAN</div><div id="n-wan">-</div>
@@ -148,37 +152,24 @@
     $("clock").textContent = MOCK.hhmm(s.system.time);
     $("sysline").textContent = "CPU " + s.system.tempC.toFixed(0) + "°C · up " + s.system.uptime;
 
-    // truck
+    // Rule: no guesses. Text comes from the device's numbers and state word only.
     var t = $("row-truck"); var tc = MOCK.voltClass("supply", p);
-    setClass(t, tc + (p.present && p.charger.source === "supply" ? " charging" : ""));
-    if (!p.present) { $("truck-v").textContent = "--.--"; $("truck-state").textContent = "no power data"; $("truck-meta").textContent = ""; }
-    else if (!p.supply.connected) { $("truck-v").textContent = "--.--"; $("truck-state").textContent = "not connected"; $("truck-meta").textContent = ""; }
-    else {
-      $("truck-v").textContent = p.supply.volts.toFixed(2);
-      $("truck-state").innerHTML = p.supply.engine ? '<svg class="bolt"><use href="#bolt"/></svg>engine running' : "engine off";
-      $("truck-meta").textContent = tc === "warn" ? "below 12.99 V, charger won't use it" : (p.charger.source === "supply" ? "charging battery · " + p.charger.mode : "connected");
-    }
-    // solar
+    setClass(t, tc + (p.present && p.state !== "MPPT" && p.state !== "MPPT-T" && MOCK.charging(p) ? " charging" : ""));
+    $("truck-v").textContent = p.present ? p.ps.toFixed(2) : "--.--";
+    $("truck-state").textContent = !p.present ? "no power data" : tc === "ok" ? "nominal" : tc === "warn" ? "undervolt" : "";
+    $("truck-meta").textContent = "";
+
     var so = $("row-solar"); var sc = MOCK.voltClass("solar", p);
-    setClass(so, sc + (p.present && p.charger.source === "solar" ? " charging" : ""));
-    if (!p.present) { $("solar-v").textContent = "--.--"; $("solar-state").textContent = "no power data"; $("solar-meta").textContent = ""; }
-    else if (!p.solar.connected) { $("solar-v").textContent = "--.--"; $("solar-state").textContent = "not connected"; $("solar-meta").textContent = ""; }
-    else {
-      $("solar-v").textContent = p.solar.volts.toFixed(1);
-      $("solar-state").textContent = p.charger.source === "solar" ? "charging battery" : (sc === "warn" ? "too little sun" : "standing by");
-      $("solar-meta").textContent = p.solar.watts ? p.solar.watts + " W" : "";
-    }
-    // battery
+    setClass(so, sc + (/^MPPT/.test(p.state || "") ? " charging" : ""));
+    $("solar-v").textContent = p.present ? p.sol.toFixed(2) : "--.--";
+    $("solar-state").textContent = !p.present ? "no power data" : sc === "ok" ? "nominal" : sc === "warn" ? "undervolt" : "";
+    $("solar-meta").textContent = "";
+
     var b = $("row-battery"); var bc = MOCK.voltClass("battery", p);
     setClass(b, bc);
-    if (!p.present) { $("batt-v").textContent = "--.--"; $("batt-state").textContent = "no power data"; $("batt-meta").textContent = ""; $("batt-fill").setAttribute("width", 0); }
-    else {
-      $("batt-v").textContent = p.battery.volts.toFixed(2);
-      var a = p.battery.amps;
-      $("batt-state").textContent = a > 0.05 ? "charging · " + a.toFixed(1) + " A in" : a < -0.05 ? "discharging · " + (-a).toFixed(1) + " A out" : "idle";
-      $("batt-meta").textContent = bc === "bad" ? "LOW BATTERY" : p.battery.soc + "% est.";
-      $("batt-fill").setAttribute("width", Math.round(42 * p.battery.soc / 100));
-    }
+    $("batt-v").textContent = p.present ? p.batt.toFixed(2) : "--.--";
+    $("batt-state").textContent = !p.present ? "no power data" : MOCK.charging(p) ? p.amps.toFixed(2) + " A in" : "";
+    $("batt-meta").textContent = p.present ? p.state + " · " + p.minutes + " min" : "";
 
     // weather
     var w = s.weather;
@@ -192,8 +183,9 @@
     var n = s.network;
     $("n-ssid").textContent = n.ssid;
     $("n-wan").textContent = n.wan.up ? n.wan.ssid + " · " + n.wan.ip : "down";
-    $("wan-pill").textContent = n.wan.up ? "WAN up" : "WAN down";
-    $("wan-pill").className = "pill " + (n.wan.up ? "ok" : "");
+    $("iface-pills").innerHTML = n.interfaces.map(function (i) {
+      return '<span class="pill ' + i.state + '"><b>' + i.role + "</b>" + i.name + " " + i.state + "</span>";
+    }).join("");
     $("n-traffic").textContent = "↓ " + MOCK.fmtKbps(n.wan.rxKbps) + "  ↑ " + MOCK.fmtKbps(n.wan.txKbps);
     $("n-clients").innerHTML = n.clients.map(function (c) {
       return '<span class="chip' + (c.active ? " active" : "") + '"><span class="dot"></span>' + c.name + "</span>";
